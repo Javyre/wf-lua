@@ -1,0 +1,231 @@
+local ffi = require 'ffi'
+local util = require 'wf.util'
+local Log = require 'wf.log'
+
+ffi.cdef [[
+@WF_H@
+]]
+
+-- FFI Logic
+
+local Raw = {signal_callbacks = {}}
+
+local function emitter_id(emitter_ptr)
+    return tostring(ffi.cast('void *', emitter_ptr))
+end
+
+ffi.metatype("wf_Output", {
+    __tostring = function(obj)
+        return ffi.string(ffi.C.wf_Output_to_string(obj))
+    end
+})
+
+ffi.metatype("wf_View", {
+    __tostring = function(obj)
+        return ffi.string(ffi.C.wf_View_to_string(obj))
+    end,
+    __index = {
+        get_title = function(self)
+            return ffi.string(ffi.C.wf_View_get_title(self))
+        end,
+        get_app_id = function(self)
+            return ffi.string(ffi.C.wf_View_get_app_id(self))
+        end
+    }
+})
+
+-- There is a cap on the amount of allowed lua-created C callbacks so we
+-- reuse this same one for all signals.
+Raw.event_callback = ffi.cast("wf_EventCallback",
+                              function(emitter, event_type, signal, signal_data)
+    local success, err = pcall(function()
+        if event_type == ffi.C.WF_EVENT_TYPE_SIGNAL then
+            -- NOTE: The address of the emitter is assumed to be constant for any
+            -- given emitter.
+            -- A signal was emitted to the signal_connection.
+            Log.debug('SIGNAL EVENT: on ' .. emitter_id(emitter) .. ' : "' ..
+                          ffi.string(signal) .. '"')
+
+            Raw.signal_callbacks[emitter_id(emitter)][ffi.string(signal)]:call(
+                emitter, signal_data)
+
+        elseif event_type == ffi.C.WF_EVENT_TYPE_DISCONNECTED then
+            -- The C++ signal_connection has died. We must clean up.
+        end
+    end)
+
+    if not success then Log.err('Error in lua event-callback:\n', err) end
+end)
+
+function Raw:subscribe(emitter_ptr, signal, handler)
+    emitter = emitter_id(emitter_ptr)
+
+    Log.debug('subscribing to ' .. emitter .. ' ' .. signal)
+
+    if not self.signal_callbacks[emitter] then
+        self.signal_callbacks[emitter] = {}
+    end
+
+    local emitter_cbs = self.signal_callbacks[emitter]
+    if not emitter_cbs[signal] then
+        ffi.C.wf_signal_subscribe(emitter_ptr, signal)
+
+        emitter_cbs[signal] = util.Hook {handler}
+    else
+        emitter_cbs[signal]:hook(handler)
+    end
+end
+
+function Raw:unsubscribe(emitter_ptr, signal, handler)
+    emitter = emitter_id(emitter_ptr)
+
+    local emitter_cbs = self.signal_callbacks[emitter]
+    emitter_cbs[signal]:unhook(handler)
+
+    if emitter_cbs[signal]:is_empty() then
+        ffi.C.wf_signal_unsubscribe(emitter_ptr, signal)
+
+        emitter_cbs[signal] = nil
+        if not next(emitter_cbs) then
+            self.signal_callbacks[emitter] = nil
+        end
+    end
+end
+
+ffi.C.wf_register_event_callback(Raw.event_callback)
+
+--- Set the value of an option.
+--
+--  The option must already by registered by Wayfire.
+function Raw.set_option(sect, opt, val)
+    local val_str = string.format('%s', val)
+
+    local r = ffi.C.wf_set_option_str(sect, opt, val_str)
+
+    if r == ffi.C.WF_INVALID_OPTION_VALUE then
+        error(string.format('`%s` is not a valid value for %s/%s', val, sect,
+                            opt))
+    elseif r == ffi.C.WF_INVALID_OPTION_SECTION then
+        error(string.format('`%s` is not a valid section name', sect))
+    elseif r == ffi.C.WF_INVALID_OPTION then
+        error(string.format('`%s` is not a valid option in `%s`', opt, sect))
+    end
+end
+
+do
+    local function view_signal(sig_data)
+        return {view = ffi.C.wf_get_signaled_view(sig_data)}
+    end
+    Raw.signal_data_converters = {
+        output = {
+            ['view-mapped'] = view_signal,
+            ['view-pre-unmapped'] = view_signal,
+            ['view-unmapped'] = view_signal
+        }
+    }
+end
+
+-- Public API
+
+local Wf = {}
+
+-- Outputs are represented as a single outputs table since there is only only
+-- central wflua instance per wayfire session.
+do
+    local outputs = {_signal_handlers = {}, _raw_outputs = nil}
+
+    -- Populate output pointers
+    do
+        local _raw_outputs = util.Set()
+
+        local first = ffi.C.wf_get_next_output(output)
+        local output = first
+        repeat
+            _raw_outputs:add(output)
+
+            local output = ffi.C.wf_get_next_output(output)
+        until output == first
+
+        outputs._raw_outputs = _raw_outputs
+    end
+
+    --- Add a callback for an output signal
+    function outputs:hook(signal, handler)
+        if not self._signal_handlers[signal] then
+            local hook = util.Hook()
+            local handler = function(emitter, data)
+                data = Raw.signal_data_converters.output[signal](data)
+                emitter = ffi.cast('wf_Output *', emitter)
+
+                hook:call(emitter, data)
+            end
+
+            self._signal_handlers[signal] = {hook = hook, handler = handler}
+
+            self._raw_outputs:for_each(function(output)
+                Raw:subscribe(output, signal, handler)
+            end)
+        end
+
+        self._signal_handlers[signal].hook:hook(handler)
+
+        return handler
+    end
+
+    --- Remove a callback for an output signal
+    function outputs:unhook(signal, handler)
+        if not self._signal_handlers[signal] then
+            error('Signal "' .. signal ..
+                      '" not in signal_handlers. Cannot unhook!')
+        end
+
+        local hook = self._signal_handlers[signal].hook
+
+        hook:unhook(handler)
+
+        if hook:is_empty() then
+            local handler = self._signal_handlers[signal].handler
+            self._raw_outputs:for_each(function(output)
+                Raw:unsubscribe(output, signal, handler)
+            end)
+
+            self._signal_handlers[signal] = nil
+        end
+
+        return handler
+    end
+
+    Wf.outputs = outputs
+end
+
+--- Set the values of some options in a single section.
+--
+--  The arguments are passed in the form: 
+--      set { 'section', option = value, ...}
+function Wf.set(args)
+    if type(args) ~= 'table' then
+        error([[The arguments to set should be passed in the form: 
+                set { 'section', option = value, option2 = value, ... }]], 2)
+    end
+
+    local sect = args[1]
+    for opt, val in pairs(args) do
+        if opt ~= 1 then Raw.set_option(sect, opt, val) end
+    end
+end
+
+--
+--
+-- TEST --
+--
+--
+
+local function test(wf)
+    wf.set {'swayfire-deco', border_radius = 123, border_width = 23}
+
+    wf.outputs.hook('view-mapped', function(data)
+        print(string.format('view %s mapped', data.view.title))
+    end)
+end
+
+return Wf

@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<wayfire>
+	<plugin name="wf-lua">
+		<_short>Lua</_short>
+		<_long>Wayfire made extensible via lua</_long>
+		<category>Utility</category>
+	</plugin>
+</wayfire>
