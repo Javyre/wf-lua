@@ -33,7 +33,7 @@ To build and install from source:
 # Generate the build directory:
 meson --prefix /usr --buildtype=release build
 
-# Build and install swayfire:
+# Build and install wf-lua:
 sudo ninja -C build install
 ```
 
