@@ -1,9 +1,4 @@
 M = {}
-local function is_table_empty(t)
-    for h, _ in pairs(t) do return false end
-    return true
-end
-M.is_table_empty = is_table_empty
 
 function M.Set(initial)
     local _data = {}
@@ -14,7 +9,7 @@ function M.Set(initial)
         add = function(self, elem) self._data[elem] = true end,
         remove = function(self, elem) self._data[elem] = nil end,
         has = function(self, elem) return self._data[elem] end,
-        is_empty = function(self) return is_table_empty(self._data) end,
+        is_empty = function(self) return not next(self._data) end,
         for_each = function(self, fn)
             local i = 0
             for elem, _ in pairs(self._data) do
@@ -31,7 +26,7 @@ function M.Hook(handlers)
 
     return {
         _hooked = _hooked,
-        is_empty = function(self) return is_table_empty(self._hooked) end,
+        is_empty = function(self) return not next(self._hooked) end,
         hook = function(self, cb) self._hooked[cb] = true end,
         unhook = function(self, cb) self._hooked[cb] = nil end,
         call = function(self, ...)
