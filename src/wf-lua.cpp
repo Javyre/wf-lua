@@ -20,12 +20,23 @@ void WFLua::register_event_callback(const wf_EventCallback callback) {
     event_callback = callback;
 }
 
-void WFLua::signal_subscribe(void *object_, const char *signal_) {
-    const std::string signal(signal_);
-    auto object = static_cast<wf::signal_provider_t *>(object_);
+struct LifetimeTracker : public wf::custom_data_t {
+    wf::object_base_t *obj;
+    LifetimeTracker(wf::object_base_t *obj) : obj(obj) {}
+    virtual ~LifetimeTracker() {
+        if (obj)
+            wf_lua::get_plugin()->on_emitter_destroyed(obj);
+    }
+};
 
+void WFLua::signal_subscribe(wf::object_base_t *object, std::string signal) {
     auto obj_entry = active_listeners.find(object);
     if (obj_entry == active_listeners.end()) {
+
+        // Listen for the emitter's destruction.
+        assert(!object->has_data<LifetimeTracker>());
+        object->store_data(std::make_unique<LifetimeTracker>(object));
+
         obj_entry =
             active_listeners
                 .emplace(object,
@@ -47,10 +58,8 @@ void WFLua::signal_subscribe(void *object_, const char *signal_) {
     object->connect_signal(signal, s);
 }
 
-void WFLua::signal_unsubscribe(void *object_, const char *signal_) {
-    const std::string signal(signal_);
-    const auto object = static_cast<wf::signal_provider_t *>(object_);
-
+void WFLua::signal_unsubscribe(wf::object_base_t *object,
+                               const std::string &signal) {
     const auto obj_entry = active_listeners.find(object);
     if (obj_entry == active_listeners.end()) {
         LOGE("Unsubscribed from non-subscribed object!");
@@ -64,8 +73,17 @@ void WFLua::signal_unsubscribe(void *object_, const char *signal_) {
     }
 
     obj_entry->second.erase(sig_entry);
-    if (obj_entry->second.empty())
+    if (obj_entry->second.empty()) {
         active_listeners.erase(obj_entry);
+        auto tracker = object->release_data<LifetimeTracker>();
+        tracker->obj = nullptr;
+        // tracker dies here
+    }
+}
+
+void WFLua::on_emitter_destroyed(wf::object_base_t *object) {
+    active_listeners.erase(object);
+    event_callback(object, WF_EVENT_TYPE_EMITTER_DESTROYED, nullptr, nullptr);
 }
 
 WFLua::WFLua() {

@@ -37,12 +37,20 @@ void wf_register_event_callback(const wf_EventCallback callback) {
     wf_lua::get_plugin()->register_event_callback(callback);
 }
 
-void wf_signal_subscribe(void *object, const char *signal) {
-    wf_lua::get_plugin()->signal_subscribe(object, signal);
+/// Temporary string buffer. Contents are invalid after any next function call.
+static std::string string_buf;
+
+void wf_signal_subscribe(void *object_, const char *signal_) {
+    string_buf = signal_;
+    auto object = static_cast<wf::object_base_t *>(object_);
+
+    wf_lua::get_plugin()->signal_subscribe(object, string_buf);
 }
 
-void wf_signal_unsubscribe(void *object, const char *signal) {
-    wf_lua::get_plugin()->signal_unsubscribe(object, signal);
+void wf_signal_unsubscribe(void *object_, const char *signal_) {
+    const auto object = static_cast<wf::object_base_t *>(object_);
+
+    wf_lua::get_plugin()->signal_unsubscribe(object, signal_);
 }
 
 wf_Output *wf_get_next_output(wf_Output *prev) {
@@ -54,9 +62,6 @@ wf_View *wf_get_signaled_view(void *sig_data) {
     return (wf_View *)wf::get_signaled_view((wf::signal_data_t *)sig_data)
         .get();
 }
-
-/// Temporary return string buffer. Meant to be copied from before next call.
-static std::string string_buf;
 
 #define WRAP_STRING_METHOD(CTYPE, METHOD, TYPE)                                \
     const char *CTYPE##_##METHOD(CTYPE *object) {                              \

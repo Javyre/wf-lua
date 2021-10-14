@@ -7,7 +7,7 @@ typedef enum {
 
 typedef enum {
     WF_EVENT_TYPE_SIGNAL,
-    WF_EVENT_TYPE_SIGNAL_DISCONNECTED
+    WF_EVENT_TYPE_EMITTER_DESTROYED,
 } wf_EventType;
 
 typedef void (*wf_EventCallback)(void *emitter, wf_EventType event_type,

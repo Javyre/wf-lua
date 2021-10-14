@@ -42,10 +42,14 @@ class WFLua {
     void register_event_callback(const wf_EventCallback callback);
 
     /// Start listening for an object's signal.
-    void signal_subscribe(void *object, const char *signal);
+    void signal_subscribe(wf::object_base_t *object, std::string signal);
 
     /// Stop listening for an object's signal.
-    void signal_unsubscribe(void *object, const char *signal);
+    void signal_unsubscribe(wf::object_base_t *object,
+                            const std::string &signal);
+
+    /// Handle the emitter object being destroyed.
+    void on_emitter_destroyed(wf::object_base_t *object);
 };
 
 #endif // ifndef WF_LUA_HPP

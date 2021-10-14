@@ -49,8 +49,11 @@ Raw.event_callback = ffi.cast("wf_EventCallback",
             Raw.signal_callbacks[emitter_id(emitter)][ffi.string(signal)]:call(
                 emitter, signal_data)
 
-        elseif event_type == ffi.C.WF_EVENT_TYPE_DISCONNECTED then
-            -- The C++ signal_connection has died. We must clean up.
+        elseif event_type == ffi.C.WF_EVENT_TYPE_EMITTER_DESTROYED then
+            -- The C++ emitter object has died. We must clean up.
+            Log.debug('EMITTER DIED: ', emitter_id(emitter))
+
+            Raw.signal_callbacks[emitter_id(emitter)] = nil
         end
     end)
 
