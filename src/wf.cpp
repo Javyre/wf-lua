@@ -6,11 +6,23 @@
 #include <wayfire/debug.hpp>
 #include <wayfire/output-layout.hpp>
 #include <wayfire/signal-definitions.hpp>
+#include <wayfire/workspace-manager.hpp>
 
 using CfgSection = std::shared_ptr<wf::config::section_t>;
 
 template <typename T>
 using CfgOption = std::shared_ptr<wf::config::option_t<T>>;
+
+/// Temporary string buffer. Contents are invalid after any next function call.
+static std::string string_buf;
+
+inline constexpr wf_Geometry wrap_geo(wf::geometry_t geo) {
+    return {geo.x, geo.y, geo.width, geo.height};
+}
+
+inline constexpr wf::geometry_t unwrap_geo(wf_Geometry geo) {
+    return {geo.x, geo.y, geo.width, geo.height};
+}
 
 extern "C" {
 
@@ -36,9 +48,6 @@ wf_Error wf_set_option_str(const char *section, const char *option,
 void wf_register_event_callback(const wf_EventCallback callback) {
     wf_lua::get_plugin()->register_event_callback(callback);
 }
-
-/// Temporary string buffer. Contents are invalid after any next function call.
-static std::string string_buf;
 
 void wf_signal_subscribe(void *object_, const char *signal_) {
     string_buf = signal_;
@@ -74,4 +83,8 @@ WRAP_STRING_METHOD(wf_View, get_title, wf::view_interface_t)
 WRAP_STRING_METHOD(wf_View, get_app_id, wf::view_interface_t)
 WRAP_STRING_METHOD(wf_Output, to_string, wf::output_t)
 #undef DEF_TO_STRING
+
+wf_Geometry wf_Output_get_workarea(wf_Output *output) {
+    return wrap_geo(((wf::output_t *)output)->workspace->get_workarea());
+}
 }

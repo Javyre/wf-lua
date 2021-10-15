@@ -14,15 +14,27 @@ local function emitter_id(emitter_ptr)
     return tostring(ffi.cast('void *', emitter_ptr))
 end
 
-ffi.metatype("wf_Output", {
-    __tostring = function(obj)
-        return ffi.string(ffi.C.wf_Output_to_string(obj))
+ffi.metatype("wf_Geometry", {
+    __tostring = function(self)
+        return string.format("(%d,%d %dx%d)", self.x, self.y, self.width,
+                             self.height)
     end
 })
 
+ffi.metatype("wf_Output", {
+    __tostring = function(self)
+        return ffi.string(ffi.C.wf_Output_to_string(self))
+    end,
+    __index = {
+        get_workarea = function(self)
+            return ffi.C.wf_Output_get_workarea(self)
+        end
+    }
+})
+
 ffi.metatype("wf_View", {
-    __tostring = function(obj)
-        return ffi.string(ffi.C.wf_View_to_string(obj))
+    __tostring = function(self)
+        return ffi.string(ffi.C.wf_View_to_string(self))
     end,
     __index = {
         get_title = function(self)

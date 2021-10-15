@@ -21,6 +21,11 @@ void wf_register_event_callback(const wf_EventCallback callback);
 void wf_signal_subscribe(void *object, const char *signal);
 void wf_signal_unsubscribe(void *object, const char *signal);
 
+typedef struct {
+    int x, y;
+    int width, height;
+} wf_Geometry;
+
 typedef struct wf_Output wf_Output;
 wf_Output *wf_get_next_output(wf_Output *prev);
 
@@ -32,3 +37,4 @@ const char *wf_View_get_title(wf_View *view);
 const char *wf_View_get_app_id(wf_View *view);
 
 const char *wf_Output_to_string(wf_Output *output);
+wf_Geometry wf_Output_get_workarea(wf_Output *output);
