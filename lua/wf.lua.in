@@ -42,6 +42,19 @@ ffi.metatype("wf_View", {
         end,
         get_app_id = function(self)
             return ffi.string(ffi.C.wf_View_get_app_id(self))
+        end,
+        get_wm_geometry = function(self)
+            return ffi.C.wf_View_get_wm_geometry(self)
+        end,
+        get_output_geometry = function(self)
+            return ffi.C.wf_View_get_output_geometry(self)
+        end,
+        get_bounding_box = function(self)
+            return ffi.C.wf_View_get_bounding_box(self)
+        end,
+        get_output = function(self) return ffi.C.wf_View_get_output(self) end,
+        set_geometry = function(self, geo)
+            return ffi.C.wf_View_set_geometry(self, geo)
         end
     }
 })

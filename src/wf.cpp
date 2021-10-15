@@ -84,6 +84,24 @@ WRAP_STRING_METHOD(wf_View, get_app_id, wf::view_interface_t)
 WRAP_STRING_METHOD(wf_Output, to_string, wf::output_t)
 #undef DEF_TO_STRING
 
+wf_Geometry wf_View_get_wm_geometry(wf_View *view) {
+    return wrap_geo(((wf::view_interface_t *)view)->get_wm_geometry());
+}
+wf_Geometry wf_View_get_output_geometry(wf_View *view) {
+    return wrap_geo(((wf::view_interface_t *)view)->get_output_geometry());
+}
+wf_Geometry wf_View_get_bounding_box(wf_View *view) {
+    return wrap_geo(((wf::view_interface_t *)view)->get_bounding_box());
+}
+
+wf_Output *wf_View_get_output(wf_View *view) {
+    return (wf_Output *)((wf::view_interface_t *)view)->get_output();
+}
+
+void wf_View_set_geometry(wf_View *view, wf_Geometry geo) {
+    ((wf::view_interface_t *)view)->set_geometry(unwrap_geo(geo));
+}
+
 wf_Geometry wf_Output_get_workarea(wf_Output *output) {
     return wrap_geo(((wf::output_t *)output)->workspace->get_workarea());
 }
