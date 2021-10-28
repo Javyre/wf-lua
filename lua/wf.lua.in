@@ -148,7 +148,16 @@ do
         output = {
             ['view-mapped'] = view_signal,
             ['view-pre-unmapped'] = view_signal,
-            ['view-unmapped'] = view_signal
+            ['view-unmapped'] = view_signal,
+            ['view-set-sticky'] = view_signal,
+            ['view-decoration-state-updated'] = view_signal,
+            ['view-attached'] = view_signal,
+            ['view-layer-attached'] = view_signal,
+            ['view-detached'] = view_signal,
+            ['view-layer-detached'] = view_signal,
+            ['view-disappeared'] = view_signal,
+            ['view-focused'] = view_signal,
+            ['view-move-request'] = view_signal
         }
     }
 end
