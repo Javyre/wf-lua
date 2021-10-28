@@ -182,7 +182,12 @@ do
         if not self._signal_handlers[signal] then
             local hook = util.Hook()
             local handler = function(emitter, data)
-                data = Raw.signal_data_converters.output[signal](data)
+                local data_converter = Raw.signal_data_converters.output[signal]
+                if data_converter then
+                    data = data_converter(data)
+                else
+                    data = nil
+                end
                 emitter = ffi.cast('wf_Output *', emitter)
 
                 hook:call(emitter, data)
