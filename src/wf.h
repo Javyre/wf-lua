@@ -18,8 +18,12 @@ wf_Error wf_set_option_str(const char *section, const char *option,
 
 void wf_register_event_callback(const wf_EventCallback callback);
 
+void wf_lifetime_subscribe(void *object);
+void wf_lifetime_unsubscribe(void *object);
+
 void wf_signal_subscribe(void *object, const char *signal);
 void wf_signal_unsubscribe(void *object, const char *signal);
+void wf_signal_unsubscribe_all(void *object);
 
 typedef struct {
     int x, y;

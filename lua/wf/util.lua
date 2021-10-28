@@ -27,7 +27,10 @@ function M.Hook(handlers)
     return {
         _hooked = _hooked,
         is_empty = function(self) return not next(self._hooked) end,
-        hook = function(self, cb) self._hooked[cb] = true end,
+        hook = function(self, cb)
+            self._hooked[cb] = true
+            return cb
+        end,
         unhook = function(self, cb) self._hooked[cb] = nil end,
         call = function(self, ...)
             for h, _ in pairs(self._hooked) do h(...) end

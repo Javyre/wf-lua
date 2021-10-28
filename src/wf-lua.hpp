@@ -41,6 +41,15 @@ class WFLua {
     /// Register the lua event callback.
     void register_event_callback(const wf_EventCallback callback);
 
+    /// Handle the emitter object being destroyed.
+    void on_emitter_destroyed(wf::object_base_t *object);
+
+    /// Start listening for an object being destroyed.
+    void lifetime_subscribe(wf::object_base_t *object);
+
+    /// Stop listening for an object being destroyed.
+    void lifetime_unsubscribe(wf::object_base_t *object);
+
     /// Start listening for an object's signal.
     void signal_subscribe(wf::object_base_t *object, std::string signal);
 
@@ -48,8 +57,8 @@ class WFLua {
     void signal_unsubscribe(wf::object_base_t *object,
                             const std::string &signal);
 
-    /// Handle the emitter object being destroyed.
-    void on_emitter_destroyed(wf::object_base_t *object);
+    /// Stop listening for any of an object's signals.
+    void signal_unsubscribe_all(wf::object_base_t *object);
 };
 
 #endif // ifndef WF_LUA_HPP

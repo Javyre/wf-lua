@@ -49,6 +49,16 @@ void wf_register_event_callback(const wf_EventCallback callback) {
     wf_lua::get_plugin()->register_event_callback(callback);
 }
 
+void wf_lifetime_subscribe(void *object_) {
+    auto object = static_cast<wf::object_base_t *>(object_);
+    wf_lua::get_plugin()->lifetime_subscribe(object);
+}
+
+void wf_lifetime_unsubscribe(void *object_) {
+    auto object = static_cast<wf::object_base_t *>(object_);
+    wf_lua::get_plugin()->lifetime_unsubscribe(object);
+}
+
 void wf_signal_subscribe(void *object_, const char *signal_) {
     string_buf = signal_;
     auto object = static_cast<wf::object_base_t *>(object_);
@@ -58,8 +68,12 @@ void wf_signal_subscribe(void *object_, const char *signal_) {
 
 void wf_signal_unsubscribe(void *object_, const char *signal_) {
     const auto object = static_cast<wf::object_base_t *>(object_);
-
     wf_lua::get_plugin()->signal_unsubscribe(object, signal_);
+}
+
+void wf_signal_unsubscribe_all(void *object_) {
+    const auto object = static_cast<wf::object_base_t *>(object_);
+    wf_lua::get_plugin()->signal_unsubscribe_all(object);
 }
 
 wf_Output *wf_get_next_output(wf_Output *prev) {

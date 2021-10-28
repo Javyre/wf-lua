@@ -8,7 +8,7 @@ ffi.cdef [[
 
 -- FFI Logic
 
-local Raw = {signal_callbacks = {}}
+local Raw = {lifetime_callbacks = {}, signal_callbacks = {}}
 
 local function emitter_id(emitter_ptr)
     return tostring(ffi.cast('void *', emitter_ptr))
@@ -71,30 +71,62 @@ Raw.event_callback = ffi.cast("wf_EventCallback",
             Log.debug('SIGNAL EVENT: on ' .. emitter_id(emitter) .. ' : "' ..
                           ffi.string(signal) .. '"')
 
-            Raw.signal_callbacks[emitter_id(emitter)][ffi.string(signal)]:call(
-                emitter, signal_data)
+            local emitter_signals = Raw.signal_callbacks[emitter_id(emitter)]
+                                        .signals
+            emitter_signals[ffi.string(signal)]:call(emitter, signal_data)
 
         elseif event_type == ffi.C.WF_EVENT_TYPE_EMITTER_DESTROYED then
-            -- The C++ emitter object has died. We must clean up.
             Log.debug('EMITTER DIED: ', emitter_id(emitter))
 
-            Raw.signal_callbacks[emitter_id(emitter)] = nil
+            Raw.lifetime_callbacks[emitter_id(emitter)]:call(emitter)
         end
     end)
 
     if not success then Log.err('Error in lua event-callback:\n', err) end
 end)
 
+function Raw:subscribe_lifetime(emitter_ptr, handler)
+    local emitter = emitter_id(emitter_ptr)
+
+    Log.debug('subscribing to ' .. emitter .. ' lifetime')
+
+    if not self.lifetime_callbacks[emitter] then
+        ffi.C.wf_lifetime_subscribe(emitter_ptr)
+        self.lifetime_callbacks[emitter] = util.Hook {handler}
+    else
+        self.lifetime_callbacks[emitter]:hook(handler)
+    end
+    return handler
+end
+
+function Raw:unsubscribe_lifetime(emitter_ptr, handler)
+    local emitter = emitter_id(emitter_ptr)
+
+    self.lifetime_callbacks[emitter]:unhook(handler)
+
+    if self.lifetime_callbacks[emitter]:is_empty() then
+        ffi.C.wf_lifetime_unsubscribe(emitter_ptr)
+        self.lifetime_callbacks[emitter] = nil
+    end
+end
+
 function Raw:subscribe(emitter_ptr, signal, handler)
-    emitter = emitter_id(emitter_ptr)
+    local emitter = emitter_id(emitter_ptr)
 
     Log.debug('subscribing to ' .. emitter .. ' ' .. signal)
 
     if not self.signal_callbacks[emitter] then
-        self.signal_callbacks[emitter] = {}
+        self.signal_callbacks[emitter] = {
+            -- Clean up when the C++ emitter object dies.
+            lifetime_handler = self:subscribe_lifetime(emitter_ptr, function()
+                self.signal_callbacks[emitter] = nil
+                ffi.C.wf_signal_unsubscribe_all(emitter_ptr)
+            end),
+            signals = {}
+        }
     end
 
-    local emitter_cbs = self.signal_callbacks[emitter]
+    local emitter_cbs = self.signal_callbacks[emitter].signals
     if not emitter_cbs[signal] then
         ffi.C.wf_signal_subscribe(emitter_ptr, signal)
 
@@ -102,19 +134,26 @@ function Raw:subscribe(emitter_ptr, signal, handler)
     else
         emitter_cbs[signal]:hook(handler)
     end
+    return handler
 end
 
 function Raw:unsubscribe(emitter_ptr, signal, handler)
-    emitter = emitter_id(emitter_ptr)
+    local emitter = emitter_id(emitter_ptr)
 
-    local emitter_cbs = self.signal_callbacks[emitter]
+    local emitter_entry = self.signal_callbacks[emitter]
+    local emitter_cbs = emitter_entry.signals
     emitter_cbs[signal]:unhook(handler)
 
     if emitter_cbs[signal]:is_empty() then
         ffi.C.wf_signal_unsubscribe(emitter_ptr, signal)
 
         emitter_cbs[signal] = nil
+
+        -- No signals being listened for for this emitter
         if not next(emitter_cbs) then
+            -- No longer need to listen for emitter destroyed
+            self.unsubscribe_lifetime(emitter_ptr,
+                                      emitter_entry.lifetime_handler)
             self.signal_callbacks[emitter] = nil
         end
     end
