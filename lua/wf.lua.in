@@ -10,54 +10,9 @@ ffi.cdef [[
 
 local Raw = {lifetime_callbacks = {}, signal_callbacks = {}}
 
-local function emitter_id(emitter_ptr)
+local function object_id(emitter_ptr)
     return tostring(ffi.cast('void *', emitter_ptr))
 end
-
-ffi.metatype("wf_Geometry", {
-    __tostring = function(self)
-        return string.format("(%d,%d %dx%d)", self.x, self.y, self.width,
-                             self.height)
-    end
-})
-
-ffi.metatype("wf_Output", {
-    __tostring = function(self)
-        return ffi.string(ffi.C.wf_Output_to_string(self))
-    end,
-    __index = {
-        get_workarea = function(self)
-            return ffi.C.wf_Output_get_workarea(self)
-        end
-    }
-})
-
-ffi.metatype("wf_View", {
-    __tostring = function(self)
-        return ffi.string(ffi.C.wf_View_to_string(self))
-    end,
-    __index = {
-        get_title = function(self)
-            return ffi.string(ffi.C.wf_View_get_title(self))
-        end,
-        get_app_id = function(self)
-            return ffi.string(ffi.C.wf_View_get_app_id(self))
-        end,
-        get_wm_geometry = function(self)
-            return ffi.C.wf_View_get_wm_geometry(self)
-        end,
-        get_output_geometry = function(self)
-            return ffi.C.wf_View_get_output_geometry(self)
-        end,
-        get_bounding_box = function(self)
-            return ffi.C.wf_View_get_bounding_box(self)
-        end,
-        get_output = function(self) return ffi.C.wf_View_get_output(self) end,
-        set_geometry = function(self, geo)
-            return ffi.C.wf_View_set_geometry(self, geo)
-        end
-    }
-})
 
 -- There is a cap on the amount of allowed lua-created C callbacks so we
 -- reuse this same one for all signals.
@@ -68,17 +23,19 @@ Raw.event_callback = ffi.cast("wf_EventCallback",
             -- NOTE: The address of the emitter is assumed to be constant for any
             -- given emitter.
             -- A signal was emitted to the signal_connection.
-            Log.debug('SIGNAL EVENT: on ' .. emitter_id(emitter) .. ' : "' ..
+            Log.debug('SIGNAL EVENT: on ' .. object_id(emitter) .. ' : "' ..
                           ffi.string(signal) .. '"')
 
-            local emitter_signals = Raw.signal_callbacks[emitter_id(emitter)]
+            local emitter_signals = Raw.signal_callbacks[object_id(emitter)]
                                         .signals
             emitter_signals[ffi.string(signal)]:call(emitter, signal_data)
 
         elseif event_type == ffi.C.WF_EVENT_TYPE_EMITTER_DESTROYED then
-            Log.debug('EMITTER DIED: ', emitter_id(emitter))
+            Log.debug('EMITTER DIED: ', object_id(emitter))
 
-            Raw.lifetime_callbacks[emitter_id(emitter)]:call(emitter)
+            local emitter_id = object_id(emitter)
+            Raw.lifetime_callbacks[emitter_id]:call(emitter)
+            Raw.lifetime_callbacks[emitter_id] = nil
         end
     end)
 
@@ -86,7 +43,7 @@ Raw.event_callback = ffi.cast("wf_EventCallback",
 end)
 
 function Raw:subscribe_lifetime(emitter_ptr, handler)
-    local emitter = emitter_id(emitter_ptr)
+    local emitter = object_id(emitter_ptr)
 
     Log.debug('subscribing to ' .. emitter .. ' lifetime')
 
@@ -100,7 +57,7 @@ function Raw:subscribe_lifetime(emitter_ptr, handler)
 end
 
 function Raw:unsubscribe_lifetime(emitter_ptr, handler)
-    local emitter = emitter_id(emitter_ptr)
+    local emitter = object_id(emitter_ptr)
 
     self.lifetime_callbacks[emitter]:unhook(handler)
 
@@ -111,7 +68,7 @@ function Raw:unsubscribe_lifetime(emitter_ptr, handler)
 end
 
 function Raw:subscribe(emitter_ptr, signal, handler)
-    local emitter = emitter_id(emitter_ptr)
+    local emitter = object_id(emitter_ptr)
 
     Log.debug('subscribing to ' .. emitter .. ' ' .. signal)
 
@@ -138,7 +95,7 @@ function Raw:subscribe(emitter_ptr, signal, handler)
 end
 
 function Raw:unsubscribe(emitter_ptr, signal, handler)
-    local emitter = emitter_id(emitter_ptr)
+    local emitter = object_id(emitter_ptr)
 
     local emitter_entry = self.signal_callbacks[emitter]
     local emitter_cbs = emitter_entry.signals
@@ -197,8 +154,28 @@ do
             ['view-disappeared'] = view_signal,
             ['view-focused'] = view_signal,
             ['view-move-request'] = view_signal
+        },
+        view = {
+            ['mapped'] = view_signal,
+            ['pre-unmapped'] = view_signal,
+            ['unmapped'] = view_signal,
+            ['set-sticky'] = view_signal,
+            ['title-changed'] = view_signal,
+            ['app-id-changed'] = view_signal,
+            ['decoration-state-updated'] = view_signal,
+            ['ping-timeout'] = view_signal
         }
     }
+end
+
+function Raw:convert_signal_data(type, signal, raw_data)
+    local data_converter = self.signal_data_converters[type][signal]
+
+    -- Without converting this raw_data pointer, it's essentially useless in
+    -- lua-land.
+    if not data_converter then return nil end
+
+    return data_converter(raw_data)
 end
 
 -- Public API
@@ -230,12 +207,7 @@ do
         if not self._signal_handlers[signal] then
             local hook = util.Hook()
             local handler = function(emitter, data)
-                local data_converter = Raw.signal_data_converters.output[signal]
-                if data_converter then
-                    data = data_converter(data)
-                else
-                    data = nil
-                end
+                data = Raw:convert_signal_data('output', signal, data)
                 emitter = ffi.cast('wf_Output *', emitter)
 
                 hook:call(emitter, data)
@@ -278,6 +250,87 @@ do
 
     Wf.outputs = outputs
 end
+
+ffi.metatype("wf_Geometry", {
+    __tostring = function(self)
+        return string.format("(%d,%d %dx%d)", self.x, self.y, self.width,
+                             self.height)
+    end
+})
+
+ffi.metatype("wf_Output", {
+    __tostring = function(self)
+        return ffi.string(ffi.C.wf_Output_to_string(self))
+    end,
+    __index = {
+        get_workarea = function(self)
+            return ffi.C.wf_Output_get_workarea(self)
+        end
+    }
+})
+
+local ViewData = {
+    data = {},
+    set = function(self, view_ptr, key, value)
+        local view = object_id(view_ptr)
+        if not self.data[view] then
+            if value == nil then return end
+
+            self.data[view] = {[key] = value}
+            Raw:subscribe_lifetime(view_ptr,
+                                   function() self.data[view] = nil end)
+        else
+            self.data[view][key] = value
+        end
+    end,
+
+    get = function(self, view_ptr, key)
+        return self.data[object_id(view_ptr)][key]
+    end
+}
+
+ffi.metatype("wf_View", {
+    __tostring = function(self)
+        return ffi.string(ffi.C.wf_View_to_string(self))
+    end,
+    __index = {
+        get_title = function(self)
+            return ffi.string(ffi.C.wf_View_get_title(self))
+        end,
+        get_app_id = function(self)
+            return ffi.string(ffi.C.wf_View_get_app_id(self))
+        end,
+        get_wm_geometry = function(self)
+            return ffi.C.wf_View_get_wm_geometry(self)
+        end,
+        get_output_geometry = function(self)
+            return ffi.C.wf_View_get_output_geometry(self)
+        end,
+        get_bounding_box = function(self)
+            return ffi.C.wf_View_get_bounding_box(self)
+        end,
+        get_output = function(self) return ffi.C.wf_View_get_output(self) end,
+        set_geometry = function(self, geo)
+            return ffi.C.wf_View_set_geometry(self, geo)
+        end,
+
+        hook = function(self, signal, handler)
+            local raw_handler = function(_emitter, data)
+                data = Raw:convert_signal_data('view', signal, data)
+                handler(self, data)
+            end
+
+            ViewData:set(self, handler, raw_handler)
+            Raw:subscribe(self, signal, raw_handler)
+            return handler
+        end,
+        unhook = function(self, signal, handler)
+            local raw_handler = ViewData:get(self, handler)
+            Raw:unsubscribe(self, signal, raw_handler)
+            ViewData:set(self, handler, nil)
+        end
+    }
+})
 
 --- Set the values of some options in a single section.
 --
