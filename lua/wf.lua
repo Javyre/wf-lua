@@ -2,9 +2,8 @@ local ffi = require 'ffi'
 local util = require 'wf.util'
 local Log = require 'wf.log'
 
-ffi.cdef [[
-@WF_H@
-]]
+-- Load the wf.h c header.
+require 'wf.wf_h'
 
 -- FFI Logic
 
