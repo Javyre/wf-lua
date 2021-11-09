@@ -1,0 +1,343 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<head>
+    <title>wf-lua documentation</title>
+    <link rel="stylesheet" href="ldoc.css" type="text/css" />
+</head>
+<body>
+<div id="container">
+<div id="product">
+	<div id="product_logo"></div>
+	<div id="product_name"><big><b></b></big></div>
+	<div id="product_description"></div>
+</div> <!-- id="product" -->
+<div id="main">
+<!-- Menu -->
+<nav id="navigation">
+<br/>
+<h1>wf-lua</h1>
+<h2>Contents</h2>
+<ul>
+<li><a href="#Functions">Functions</a></li>
+<li><a href="#Class_Output">Class Output </a></li>
+<li><a href="#Class_View">Class View </a></li>
+</ul>
+<h2>Modules</h2>
+<ul class="nowrap">
+  <li><strong>wf</strong></li>
+</ul>
+<h2>Topics</h2>
+<ul class="">
+  <li><a href="topics/readme.md.html">readme</a></li>
+</ul>
+<h2>Source</h2>
+<ul class="nowrap">
+  <li><a href="source/wf.lua.html">wf.lua</a></li>
+</ul>
+</nav> <!-- id="navigation" -->
+<div id="content" class="">
+<div class="module-info">
+<h1>Module <code>wf</code></h1>
+<p>High-level lua bindings to wayfire's API.</p>
+<p>
+
+</p>
+    <h3>Info:</h3>
+    <ul>
+        <li><strong>License</strong>: GPL-v3</li>
+        <li><strong>Author</strong>: Javier A. Pollak</li>
+    </ul>
+<br>
+<h2><a href="#Functions">Functions</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#outputs:hook">outputs:hook (signal, handler)</a></td>
+	<td class="summary">Hook into a signal on all outputs.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#outputs:unhook">outputs:unhook (signal, handler)</a></td>
+	<td class="summary">Unhook from a signal on all outputs.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#set">set (args)</a></td>
+	<td class="summary">Set option values in a given section.</td>
+	</tr>
+</table>
+<br>
+<h2><a href="#Class_Output">Class Output </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#Output:get_workarea">Output:get_workarea (self)</a></td>
+	<td class="summary">Get the output's workarea geometry.</td>
+	</tr>
+</table>
+<br>
+<h2><a href="#Class_View">Class View </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#View:get_title">View:get_title (self)</a></td>
+	<td class="summary">Get the view's title.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#View:get_app_id">View:get_app_id (self)</a></td>
+	<td class="summary">Get the view's app id.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#View:get_wm_geometry">View:get_wm_geometry (self)</a></td>
+	<td class="summary">Get the view's wm geometry.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#View:get_output_geometry">View:get_output_geometry (self)</a></td>
+	<td class="summary">Get the view's output geometry.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#View:get_bounding_box">View:get_bounding_box (self)</a></td>
+	<td class="summary">Get the view's bounding box.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#View:get_output">View:get_output (self)</a></td>
+	<td class="summary">Get the view's output.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#View:set_geometry">View:set_geometry (self, geo)</a></td>
+	<td class="summary">Set the view's geometry.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#View:hook">View:hook (self, signal, handler)</a></td>
+	<td class="summary">Hook into a signal on this view.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#View:unhook">View:unhook (self, signal, handler)</a></td>
+	<td class="summary">Unhook from a signal on this view.</td>
+	</tr>
+</table>
+<br/>
+</div> <!-- id="module-info" -->
+    <h2 class="section-header ">
+        <a name="Functions"></a>
+        Functions
+    </h2>
+    <div class="section-content">
+
+    <dl class="function">
+    <dt>
+    <a name = "outputs:hook"></a>
+    <pre class="signature"><span class="keyword">function</span> outputs:hook(signal: <span class="backtick"><a href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>, handler: <span class="backtick"><code>fn(output,data)</code></span>): <span class="backtick"><code>fn(output,data)</code></span></pre>
+    <a style="float:right;" href="source/wf.lua.html#229">line 229</a>
+    </dt>
+    <dd>
+    Hook into a signal on all outputs. </p>
+
+<p> Start listening for and calling <code>handler</code> on this signal.
+ <code>output</code> is the specific <a href="index.html#Output">Output</a> that triggered the signal.
+ The type of <code>data</code> depends on the signal being listened for.
+ See (TODO: signal definitions page).
+    <h3>Usage:</h3>
+    <ul class="examples">
+        <li><pre class="example"><span class="keyword">local</span> wf = <span class="global">require</span> <span class="string">'wf'</span>
+
+wf.outputs:hook(<span class="string">'view-focused'</span>, <span class="keyword">function</span>(output, data)
+    <span class="global">print</span>(<span class="string">'View '</span>, data.view, <span class="string">' focused on output '</span>, output)
+<span class="keyword">end</span>)</pre></li>
+        <li><pre class="example"><span class="global">assert</span>(handler == wf.outputs:hook(<span class="string">'view-focused'</span>, handler))</pre></li>
+    </ul>
+</dd>
+    <dt>
+    <a name = "outputs:unhook"></a>
+    <pre class="signature"><span class="keyword">function</span> outputs:unhook(signal: <span class="backtick"><a href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>, handler: <span class="backtick"><code>fn(output,data)</code></span>)</pre>
+    <a style="float:right;" href="source/wf.lua.html#267">line 267</a>
+    </dt>
+    <dd>
+    Unhook from a signal on all outputs. </p>
+
+<p> Stop listening for and calling <code>handler</code> on this signal.
+    <h3>Usage:</h3>
+    <ul class="examples">
+        <li><pre class="example"><span class="keyword">local</span> handler = wf.outputs:hook(<span class="string">'view-focused'</span>,
+                                <span class="keyword">function</span>(output, data) <span class="keyword">end</span>)
+wf.outputs:unhook(<span class="string">'view-focused'</span>, handler)</pre></li>
+        <li><pre class="example"><span class="keyword">local</span> handler = <span class="keyword">function</span>() <span class="keyword">end</span>
+wf.outputs:hook(<span class="string">'view-mapped'</span>, handler)
+wf.outputs:hook(<span class="string">'view-focused'</span>, handler)
+wf.outputs:unhook(<span class="string">'view-mapped'</span>, handler)
+wf.outputs:unhook(<span class="string">'view-focused'</span>, handler)</pre></li>
+    </ul>
+</dd>
+    <dt>
+    <a name = "set"></a>
+    <pre class="signature"><span class="keyword">function</span> set(args: <span class="backtick"><code>{section,option=value,...}</code></span>)</pre>
+    <a style="float:right;" href="source/wf.lua.html#307">line 307</a>
+    </dt>
+    <dd>
+    Set option values in a given section. </p>
+
+<p> The section and option names must already be registered in wayfire by it or
+ some plugin.
+    <h3>Usage:</h3>
+    <ul class="examples">
+        <pre class="example"><span class="comment">--The arguments are passed in the form:
+</span>set { <span class="string">'section'</span>, option = value, ...}
+
+<span class="comment">-- The wayfire.ini equivalent:
+</span><span class="comment">--
+</span><span class="comment">-- [section]
+</span><span class="comment">-- option = value
+</span><span class="comment">-- ...</span></pre>
+    </ul>
+</dd>
+</dl>
+</div> <!-- class="section-content" -->
+    <h2 class="section-header has-description">
+        <a name="Class_Output"></a>
+        Class Output
+    </h2>
+    <div class="section-content">
+
+          <div class="section-description">
+          A wayfire output.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "Output:get_workarea"></a>
+    <pre class="signature"><span class="keyword">function</span> Output:get_workarea(): <span class="backtick"><a href="index.html#Geometry">Geometry</a></span></pre>
+    <a style="float:right;" href="source/wf.lua.html#342">line 342</a>
+    </dt>
+    <dd>
+    Get the output's workarea geometry.
+</dd>
+</dl>
+</div> <!-- class="section-content" -->
+    <h2 class="section-header has-description">
+        <a name="Class_View"></a>
+        Class View
+    </h2>
+    <div class="section-content">
+
+          <div class="section-description">
+          A wayfire view.
+          </div>
+            <h3>Usage:</h3>
+            <pre class="example section-example"><span class="comment">-- If view is foot, then set its geometry and hook into the 'title-changed'
+</span><span class="comment">-- event of this view.
+</span><span class="keyword">if</span> view:get_app_id() == <span class="string">'foot'</span> <span class="keyword">then</span>
+    view:set_geometry({<span class="number">1</span>, <span class="number">2</span>, <span class="number">500</span>, <span class="number">300</span>})
+
+    view:hook(<span class="string">'title-changed'</span>, <span class="keyword">function</span>(view, data)
+        <span class="global">print</span>(<span class="string">'View title changed! New title:'</span>, data.view:get_title())
+        <span class="global">assert</span>(view == data.view)
+    <span class="keyword">end</span>)
+<span class="keyword">end</span></pre>
+    <dl class="function">
+    <dt>
+    <a name = "View:get_title"></a>
+    <pre class="signature"><span class="keyword">function</span> View:get_title(): <span class="backtick"><a href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span></pre>
+    <a style="float:right;" href="source/wf.lua.html#399">line 399</a>
+    </dt>
+    <dd>
+    Get the view's title.
+</dd>
+    <dt>
+    <a name = "View:get_app_id"></a>
+    <pre class="signature"><span class="keyword">function</span> View:get_app_id(): <span class="backtick"><a href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span></pre>
+    <a style="float:right;" href="source/wf.lua.html#406">line 406</a>
+    </dt>
+    <dd>
+    Get the view's app id.
+</dd>
+    <dt>
+    <a name = "View:get_wm_geometry"></a>
+    <pre class="signature"><span class="keyword">function</span> View:get_wm_geometry(): <span class="backtick"><a href="index.html#Geometry">Geometry</a></span></pre>
+    <a style="float:right;" href="source/wf.lua.html#413">line 413</a>
+    </dt>
+    <dd>
+    Get the view's wm geometry.
+</dd>
+    <dt>
+    <a name = "View:get_output_geometry"></a>
+    <pre class="signature"><span class="keyword">function</span> View:get_output_geometry(): <span class="backtick"><a href="index.html#Geometry">Geometry</a></span></pre>
+    <a style="float:right;" href="source/wf.lua.html#420">line 420</a>
+    </dt>
+    <dd>
+    Get the view's output geometry.
+</dd>
+    <dt>
+    <a name = "View:get_bounding_box"></a>
+    <pre class="signature"><span class="keyword">function</span> View:get_bounding_box(): <span class="backtick"><a href="index.html#Geometry">Geometry</a></span></pre>
+    <a style="float:right;" href="source/wf.lua.html#427">line 427</a>
+    </dt>
+    <dd>
+    Get the view's bounding box.
+</dd>
+    <dt>
+    <a name = "View:get_output"></a>
+    <pre class="signature"><span class="keyword">function</span> View:get_output(): <span class="backtick"><a href="index.html#Output">Output</a></span></pre>
+    <a style="float:right;" href="source/wf.lua.html#434">line 434</a>
+    </dt>
+    <dd>
+    Get the view's output.
+</dd>
+    <dt>
+    <a name = "View:set_geometry"></a>
+    <pre class="signature"><span class="keyword">function</span> View:set_geometry(geo: <span class="backtick"><a href="index.html#Geometry">Geometry</a></span>)</pre>
+    <a style="float:right;" href="source/wf.lua.html#440">line 440</a>
+    </dt>
+    <dd>
+    Set the view's geometry.
+    <h3>Usage:</h3>
+    <ul class="examples">
+        <pre class="example">view:set_geometry({x, y, w, h})</pre>
+    </ul>
+</dd>
+    <dt>
+    <a name = "View:hook"></a>
+    <pre class="signature"><span class="keyword">function</span> View:hook(signal: <span class="backtick"><a href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>, handler: <span class="backtick"><code>fn(view,data)</code></span>): <span class="backtick"><code>fn(view,data)</code></span></pre>
+    <a style="float:right;" href="source/wf.lua.html#460">line 460</a>
+    </dt>
+    <dd>
+    Hook into a signal on this view. </p>
+
+<p> Start listening for and calling <code>handler</code> on this signal.
+ The type of <code>data</code> depends on the signal being listened for.
+ See (TODO: signal definitions page).
+    <h3>Usage:</h3>
+    <ul class="examples">
+        <li><pre class="example">view:hook(<span class="string">'title-changed'</span>, <span class="keyword">function</span>(view, data)
+    <span class="global">print</span>(<span class="string">'View title changed! New title:'</span>, data.view:get_title())
+    <span class="global">assert</span>(view == data.view)
+<span class="keyword">end</span>)</pre></li>
+        <li><pre class="example"><span class="global">assert</span>(handler == view:hook(<span class="string">'title-changed'</span>, handler))</pre></li>
+    </ul>
+</dd>
+    <dt>
+    <a name = "View:unhook"></a>
+    <pre class="signature"><span class="keyword">function</span> View:unhook(signal: <span class="backtick"><a href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>, handler: <span class="backtick"><code>fn(view,data)</code></span>)</pre>
+    <a style="float:right;" href="source/wf.lua.html#486">line 486</a>
+    </dt>
+    <dd>
+    Unhook from a signal on this view. </p>
+
+<p> Stop listening for and calling <code>handler</code> on this signal.
+    <h3>Usage:</h3>
+    <ul class="examples">
+        <li><pre class="example"><span class="keyword">local</span> handler = view:hook(<span class="string">'title-changed'</span>, <span class="keyword">function</span>(view, data) <span class="keyword">end</span>)
+view:unhook(<span class="string">'title-changed'</span>, handler)</pre></li>
+        <li><pre class="example"><span class="keyword">local</span> handler = <span class="keyword">function</span>() <span class="keyword">end</span>
+view:hook(<span class="string">'title-changed'</span>, handler)
+view:hook(<span class="string">'app-id-changed'</span>, handler)
+view:unhook(<span class="string">'title-changed'</span>, handler)
+view:unhook(<span class="string">'app-id-changed'</span>, handler)</pre></li>
+    </ul>
+</dd>
+</dl>
+</div> <!-- class="section-content" -->
+</div> <!-- id="content" -->
+</div> <!-- id="main" -->
+<div id="about">
+<i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
+<i style="float:right;">Last updated 2021-11-09 03:29:22 </i>
+</div> <!-- id="about" -->
+</div> <!-- id="container" -->
+</body>
+</html>
