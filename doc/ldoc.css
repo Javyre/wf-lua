@@ -1,0 +1,326 @@
+/* BEGIN RESET */
+/* Taken from: https://piccalil.li/blog/a-modern-css-reset/ */
+
+/* Box sizing rules */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* Remove default margin */
+body,
+h1,
+h2,
+h3,
+h4,
+p,
+figure,
+blockquote,
+dl,
+dd {
+  margin: 0;
+}
+
+/* Remove list styles on ul, ol elements with a list role, which suggests default styling will be removed */
+ul[role='list'],
+ol[role='list'] {
+  list-style: none;
+}
+
+/* Set core root defaults */
+html:focus-within {
+  scroll-behavior: smooth;
+}
+
+/* Set core body defaults */
+body {
+  min-height: 100vh;
+  line-height: 1.5;
+}
+
+/* A elements that don't have a class get default styles */
+a:not([class]) {
+  text-decoration-skip-ink: auto;
+}
+
+/* Make images easier to work with */
+img,
+picture {
+  max-width: 100%;
+  display: block;
+}
+
+/* Inherit fonts for inputs and buttons */
+input,
+button,
+textarea,
+select {
+  font: inherit;
+}
+
+/* Remove all animations, transitions and smooth scroll for people that prefer not to see them */
+@media (prefers-reduced-motion: reduce) {
+  html:focus-within {
+   scroll-behavior: auto;
+  }
+  
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+/* END RESET */
+
+:root {
+  /* --bg: #2c303a; */
+  --bg: #2b2f3b;
+  --bg-light: #3D4351;
+  --bg-lighter: #38405F;
+	--bg-dark: #1B1C22;
+  /* --fg: #FDFFFC; */
+  --fg: #FFFFFF;
+  --fg-dark: #7f899f;
+}
+code, tt {
+    font-family: monospace; 
+    font-size: 1.05em;
+    background-color: var(--bg-dark);
+    padding-left: 0.2rem;
+    padding-right: 0.2rem;
+}
+pre.signature code {
+    background-color: unset;
+    font-size: unset;
+}
+span.parameter { font-family:monospace; background-color: var(--bg-dark); font-weight: bold; }
+span.parameter:after { content:":"; }
+span.types:before { content:"("; }
+span.types:after { content:")"; }
+.type { font-weight: bold; font-style:italic }
+body, p, td, th { font-size: 1rem; line-height: 1.2rem;}
+p, ul { margin: 10px 0 0 0px;}
+strong { font-weight: bold;}
+em { font-style: italic;}
+h1 {
+    font-size: 1.5rem;
+    margin: 20px 0 20px 0;
+}
+h2, h3, h4 { margin: 1rem 0 0.5rem 0; }
+h2 { font-size: 1.25rem; }
+h3 { font-size: 1.15rem; }
+h4 { font-size: 1.06rem; }
+a:focus, a:focus-visible, a:link:hover, a:visited:hover {
+    background-color: #2EA8FF;
+    outline: solid 1px #2EA8FF;
+    color: black !important;
+}
+/* visited styling get's annoying quickly */
+a:link, a:visited { font-weight: bold; color: #2EA8FF; text-decoration: none; }
+/* a:visited { font-weight: bold; color: #F065E1; text-decoration: none; } */
+/* a:link:hover { text-decoration: underline; } */
+hr {
+    color:#cccccc;
+    background: #00007f;
+    height: 1px;
+}
+blockquote { margin-left: 3em; }
+ul { list-style-type: disc; }
+ul.examples { list-style-type: none; }
+p.name {
+    font-family: "Andale Mono", monospace;
+    padding-top: 1rem;
+}
+pre {
+    background-color: var(--bg-dark);
+    padding: 1rem;
+    margin: 1rem; 
+    margin-left: 0; 
+    overflow: auto;
+    font-family: "Andale Mono", monospace;
+}
+pre.section-example {
+    margin-left: 1rem;
+}
+pre.example {
+    font-size: .85rem;
+}
+pre.signature {
+    padding: 0.4rem;
+    margin: 0;
+}
+table.index td { text-align: left; vertical-align: top; }
+
+
+body {
+    font-family: arial, helvetica, geneva, sans-serif;
+    color: var(--fg);
+    background-color: var(--bg);
+    display: flex;
+}
+body::before,
+body::after {
+    content: '';
+    flex: 1;
+    height: auto;
+    /* background-color: var(--bg-dark); */
+}
+
+#container { 
+    display: flex;
+    flex-direction: column;
+    max-width: 76rem;
+    min-width: 30rem;
+    width: 100%;
+}
+#product { }
+
+#main {
+    display: flex;
+    flex-direction: row;
+}
+#main::after {
+    flex: 1;
+    min-width: 0;
+    max-width: 12rem;
+    content: '';
+}
+#navigation {
+    width: 12rem;
+    min-width: 10rem;
+    padding: 0.5rem;
+    background-color: var(--bg-dark);
+}
+#navigation h2 {
+    background-color: var(--bg-light);
+    font-size: 1.1rem;
+    padding: 0.2rem;
+}
+#navigation ul {
+    font-size: 1rem;
+    list-style: none;
+}
+#navigation li { }
+#navigation li li a { }
+#content {
+    flex: 0 1 52rem;
+    /* padding: 1rem; */
+}
+#content.verbatim-html {
+    padding-left: 0.5rem;
+}
+#about {
+    color: var(--fg-dark);
+    padding: 0.15rem;
+    background-color: var(--bg-dark);
+}
+
+@media screen and (max-width: 40rem) {
+    body {
+        align-items: flex-start;
+    }
+    #content {
+        padding: 0.4rem;
+    }
+}
+
+@media print {
+    body {
+        font: 12pt "Times New Roman", "TimeNR", Times, serif;
+    }
+    a { font-weight: bold; color: #004080; text-decoration: underline; }
+    #main {
+        background-color: #ffffff;
+        border-left: 0px;
+    }
+    #container {
+        margin-left: 2%;
+        margin-right: 2%;
+        background-color: #ffffff;
+    }
+    #content {
+        padding: 1em;
+        background-color: #ffffff;
+    }
+    #navigation {
+        display: none;
+    }
+    pre.example {
+        font-family: "Andale Mono", monospace;
+        font-size: 10pt;
+        page-break-inside: avoid;
+    }
+}
+
+div.module-info {
+    margin-left: 0.5rem;
+}
+
+h2.section-header {
+    background-color: var(--bg-dark);
+    padding: 0.5rem;
+    margin-bottom: 0;
+}
+
+div.section-description {
+    margin: 1rem;
+}
+div.section-content {
+    margin-left: 0.5rem;
+}
+
+table.module_list td, 
+table.function_list td, { padding: 3px; }
+
+table.module_list td.name,
+table.function_list td.name {
+    line-height: 1.3;
+    background-color: var(--bg-dark);
+    min-width: 12rem;
+}
+
+ul.nowrap {
+    overflow:auto;
+    white-space:nowrap;
+}
+dl.table dt, dl.function dt {
+    margin-top: 1rem;
+}
+
+dl.table dd, dl.function dd {
+    padding-bottom: 1rem;
+    margin: 1rem 0 0 1rem;
+    line-height: 1.2;
+}
+dl.table h3, dl.function h3 {font-size: .95rem;}
+/* stop sublists from having initial vertical space */
+ul ul { margin-top: 0px; }
+ol ul { margin-top: 0px; }
+ol ol { margin-top: 0px; }
+ul ol { margin-top: 0px; }
+/* make the target distinct; helps when we're navigating to a function */
+a:target + * {
+  background-color: #FF9;
+  color: black !important;
+}
+
+/* Molokai from https://github.com/Javyre/etc/blob/master/nvim/start/molo.nvim/lua/lush_theme/molo.lua */
+pre .comment { color: #7e8e91; }
+pre .constant { color: #AE81FF; }
+pre .escape { color: #F92672; }
+pre .keyword { color: #F92672; font-weight: bold; }
+pre .library { color: #A6E22E; }
+/* FIXME: what even is a marker?? */
+pre .marker { color: #512b1e; background: #fedc56; font-weight: bold; }
+pre .string { color: #E6DB74; }
+pre .number { color: #AE81FF; }
+/* pre .operator { color: #2239a8; font-weight: bold; } */
+pre .preprocessor, pre .prepro { color: #A6E22E; }
+pre .global { color: #66D9EF; }
+pre .user-keyword { color: #66D9EF; }
+pre .prompt { color: #66D9EF; }
+pre .url { color: #272fc2; text-decoration: underline; }

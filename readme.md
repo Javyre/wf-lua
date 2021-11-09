@@ -37,6 +37,17 @@ meson --prefix /usr --buildtype=release build
 sudo ninja -C build install
 ```
 
+## Documentation
+
+Wf-lua uses [`LDoc`](https://github.com/lunarmodules/LDoc) to generate
+documentation from comments in lua source code. LDoc can be installed from
+[LuaRocks](https://luarocks.org/modules/steved/ldoc).
+
+```sh
+# Generate html documentation in ./public/:
+ldoc .
+```
+
 ## Contributing
 
 Contributions are welcome.
