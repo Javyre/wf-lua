@@ -1,3 +1,10 @@
+--- High-level lua bindings to wayfire's API.
+--
+-- @author Javier A. Pollak
+-- @license GPL-v3
+-- @alias Wf
+-- @module wf
+--
 local ffi = require 'ffi'
 local util = require 'wf.util'
 local Log = require 'wf.log'
@@ -118,8 +125,8 @@ end
 ffi.C.wf_register_event_callback(Raw.event_callback)
 
 --- Set the value of an option.
---
---  The option must already by registered by Wayfire.
+-- The option must already by registered by Wayfire.
+-- @local
 function Raw.set_option(sect, opt, val)
     local val_str = string.format('%s', val)
 
@@ -201,7 +208,24 @@ do
         outputs._raw_outputs = _raw_outputs
     end
 
-    --- Add a callback for an output signal
+    --- Hook into a signal on all outputs.
+    --
+    -- Start listening for and calling `handler` on this signal. 
+    -- `output` is the specific `Output` that triggered the signal.
+    -- The type of `data` depends on the signal being listened for.
+    -- See (TODO: signal definitions page).
+    --
+    -- @usage 
+    -- local wf = require 'wf'
+    --
+    -- wf.outputs:hook('view-focused', function(output, data)
+    --     print('View ', data.view, ' focused on output ', output)
+    -- end)
+    -- @usage assert(handler == wf.outputs:hook('view-focused', handler))
+    --
+    -- @tparam string signal
+    -- @tparam fn(output,data) handler
+    -- @treturn fn(output,data) handler
     function outputs:hook(signal, handler)
         if not self._signal_handlers[signal] then
             local hook = util.Hook()
@@ -224,7 +248,22 @@ do
         return handler
     end
 
-    --- Remove a callback for an output signal
+    --- Unhook from a signal on all outputs.
+    --
+    -- Stop listening for and calling `handler` on this signal.
+    -- @usage
+    -- local handler = wf.outputs:hook('view-focused',
+    --                                 function(output, data) end)
+    -- wf.outputs:unhook('view-focused', handler)
+    --
+    -- @usage local handler = function() end
+    -- wf.outputs:hook('view-mapped', handler)
+    -- wf.outputs:hook('view-focused', handler)
+    -- wf.outputs:unhook('view-mapped', handler)
+    -- wf.outputs:unhook('view-focused', handler)
+    --
+    -- @tparam string signal
+    -- @tparam fn(output,data) handler
     function outputs:unhook(signal, handler)
         if not self._signal_handlers[signal] then
             error('Signal "' .. signal ..
@@ -250,6 +289,39 @@ do
     Wf.outputs = outputs
 end
 
+--- Set option values in a given section.
+--
+-- The section and option names must already be registered in wayfire by it or
+-- some plugin.
+--
+-- @usage
+-- --The arguments are passed in the form: 
+-- set { 'section', option = value, ...}
+--
+-- -- The wayfire.ini equivalent:
+-- --
+-- -- [section]
+-- -- option = value
+-- -- ...
+-- @tparam {section,option=value,...} args
+function Wf.set(args)
+    if type(args) ~= 'table' then
+        error([[The arguments to set should be passed in the form: 
+                set { 'section', option = value, option2 = value, ... }]], 2)
+    end
+
+    local sect = args[1]
+    for opt, val in pairs(args) do
+        if opt ~= 1 then Raw.set_option(sect, opt, val) end
+    end
+end
+
+---A rectangle.
+-- @field x
+-- @field y
+-- @field width
+-- @field height
+-- @type Geometry
 ffi.metatype("wf_Geometry", {
     __tostring = function(self)
         return string.format("(%d,%d %dx%d)", self.x, self.y, self.width,
@@ -257,19 +329,32 @@ ffi.metatype("wf_Geometry", {
     end
 })
 
+---A wayfire output.
+-- @type Output
 ffi.metatype("wf_Output", {
     __tostring = function(self)
         return ffi.string(ffi.C.wf_Output_to_string(self))
     end,
     __index = {
+        --- Get the output's workarea geometry.
+        -- @tparam Output self the output.
+        -- @treturn Geometry the the output's workarea.
         get_workarea = function(self)
             return ffi.C.wf_Output_get_workarea(self)
         end
     }
 })
 
+--- Lua-local data attached to views.
+-- @type ViewData
+-- @local
 local ViewData = {
     data = {},
+
+    --- Store some data.
+    --
+    -- Delete some stored data by setting it to `nil`.
+    -- @local
     set = function(self, view_ptr, key, value)
         local view = object_id(view_ptr)
         if not self.data[view] then
@@ -283,36 +368,95 @@ local ViewData = {
         end
     end,
 
+    --- Retrieve some stored data.
+    -- @local
     get = function(self, view_ptr, key)
         return self.data[object_id(view_ptr)][key]
     end
 }
 
+---A wayfire view.
+-- @usage
+-- -- If view is foot, then set its geometry and hook into the 'title-changed'
+-- -- event of this view.
+-- if view:get_app_id() == 'foot' then
+--     view:set_geometry({1, 2, 500, 300})
+-- 
+--     view:hook('title-changed', function(view, data)
+--         print('View title changed! New title:', data.view:get_title())
+--         assert(view == data.view)
+--     end)
+-- end
+-- @type View
 ffi.metatype("wf_View", {
     __tostring = function(self)
         return ffi.string(ffi.C.wf_View_to_string(self))
     end,
     __index = {
+        --- Get the view's title.
+        -- @tparam View self the view.
+        -- @treturn string the view's title.
         get_title = function(self)
             return ffi.string(ffi.C.wf_View_get_title(self))
         end,
+
+        --- Get the view's app id.
+        -- @tparam View self the view.
+        -- @treturn string the view's app id.
         get_app_id = function(self)
             return ffi.string(ffi.C.wf_View_get_app_id(self))
         end,
+
+        --- Get the view's wm geometry.
+        -- @tparam View self the view.
+        -- @treturn Geometry the view's wm geometry.
         get_wm_geometry = function(self)
             return ffi.C.wf_View_get_wm_geometry(self)
         end,
+
+        --- Get the view's output geometry.
+        -- @tparam View self the view.
+        -- @treturn Geometry the view's output geometry.
         get_output_geometry = function(self)
             return ffi.C.wf_View_get_output_geometry(self)
         end,
+
+        --- Get the view's bounding box.
+        -- @tparam View self the view.
+        -- @treturn Geometry the view's bounding box.
         get_bounding_box = function(self)
             return ffi.C.wf_View_get_bounding_box(self)
         end,
+
+        --- Get the view's output.
+        -- @tparam View self the view.
+        -- @treturn Output the output the view is on.
         get_output = function(self) return ffi.C.wf_View_get_output(self) end,
+
+        --- Set the view's geometry.
+        -- @tparam View self the view.
+        -- @tparam Geometry geo the view's new geometry.
+        -- @usage view:set_geometry({x, y, w, h})
         set_geometry = function(self, geo)
             return ffi.C.wf_View_set_geometry(self, geo)
         end,
 
+        --- Hook into a signal on this view.
+        --
+        -- Start listening for and calling `handler` on this signal. 
+        -- The type of `data` depends on the signal being listened for.
+        -- See (TODO: signal definitions page).
+        --
+        -- @usage view:hook('title-changed', function(view, data)
+        --     print('View title changed! New title:', data.view:get_title())
+        --     assert(view == data.view)
+        -- end)
+        -- @usage assert(handler == view:hook('title-changed', handler))
+        --
+        -- @tparam View self
+        -- @tparam string signal
+        -- @tparam fn(view,data) handler
+        -- @treturn fn(view,data) handler
         hook = function(self, signal, handler)
             local raw_handler = function(_emitter, data)
                 data = Raw:convert_signal_data('view', signal, data)
@@ -323,6 +467,22 @@ ffi.metatype("wf_View", {
             Raw:subscribe(self, signal, raw_handler)
             return handler
         end,
+
+        --- Unhook from a signal on this view.
+        --
+        -- Stop listening for and calling `handler` on this signal.
+        -- @usage local handler = view:hook('title-changed', function(view, data) end)
+        -- view:unhook('title-changed', handler)
+        --
+        -- @usage local handler = function() end
+        -- view:hook('title-changed', handler)
+        -- view:hook('app-id-changed', handler)
+        -- view:unhook('title-changed', handler)
+        -- view:unhook('app-id-changed', handler)
+        --
+        -- @tparam View self
+        -- @tparam string signal
+        -- @tparam fn(view,data) handler
         unhook = function(self, signal, handler)
             local raw_handler = ViewData:get(self, handler)
             Raw:unsubscribe(self, signal, raw_handler)
@@ -330,22 +490,6 @@ ffi.metatype("wf_View", {
         end
     }
 })
-
---- Set the values of some options in a single section.
---
---  The arguments are passed in the form: 
---      set { 'section', option = value, ...}
-function Wf.set(args)
-    if type(args) ~= 'table' then
-        error([[The arguments to set should be passed in the form: 
-                set { 'section', option = value, option2 = value, ... }]], 2)
-    end
-
-    local sect = args[1]
-    for opt, val in pairs(args) do
-        if opt ~= 1 then Raw.set_option(sect, opt, val) end
-    end
-end
 
 --
 --
