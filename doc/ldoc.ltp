@@ -3,6 +3,7 @@
 <html>
 <meta http-equiv="Content-Type" content="text/html; charset=$(ldoc.doc_charset)"/>
 <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>$(ldoc.title)</title>
     <link rel="stylesheet" href="$(ldoc.css)" type="text/css" />
 # if ldoc.custom_css then -- add custom CSS file if configured.
@@ -174,14 +175,12 @@
 # for kind,items in module.kinds() do
 <br>
 <h2><a href="#$(no_spaces(kind))">$(kind)</a></h2>
-<table class="function_list">
+<div class="function_list toc_list">
 #  for item in items() do
-	<tr>
-	<td class="name" $(nowrap)><a href="#$(item.name)">$(display_name(item))</a></td>
-	<td class="summary">$(M(item.summary,item))</td>
-	</tr>
+	<div class="name"><a href="#$(item.name)">$(display_name(item))</a></div>
+	<div class="summary">$(M(item.summary,item))</div>
 #  end -- for items
-</table>
+</div>
 #end -- for kinds
 <br/>
 #end -- if not no_summary
@@ -338,14 +337,12 @@
 # for kind, mods in ldoc.kinds() do
 <h2>$(kind)</h2>
 # kind = kind:lower()
-<table class="module_list">
+<div class="module_list toc_list">
 # for m in mods() do
-	<tr>
-		<td class="name"  $(nowrap)><a href="$(no_spaces(kind))/$(m.name).html">$(m.name)</a></td>
-		<td class="summary">$(M(ldoc.strip_header(m.summary),m))</td>
-	</tr>
+    <div class="name"><a href="$(no_spaces(kind))/$(m.name).html">$(m.name)</a></div>
+    <div class="summary">$(M(ldoc.strip_header(m.summary),m))</div>
 #  end -- for modules
-</table>
+</div>
 # end -- for kinds
 # end -- if module
 </div> <!-- id="content" -->
