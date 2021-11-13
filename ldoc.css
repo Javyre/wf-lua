@@ -147,16 +147,15 @@ pre {
     margin-left: 0; 
     overflow: auto;
     font-family: "Andale Mono", monospace;
-    white-space: break-spaces;
 }
 pre.section-example {
     margin-left: 1rem;
 }
 pre.example {
     font-size: .85rem;
-    white-space: pre;
 }
 pre.signature {
+    white-space: break-spaces;
     padding: 0.4rem;
     margin: 0;
 }
