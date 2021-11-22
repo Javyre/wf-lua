@@ -42,12 +42,11 @@
 </span><span class="comment">-- @alias Wf
 </span><span class="comment">-- @module wf
 </span><span class="comment">--
-</span><span class="keyword">local</span> ffi = <span class="global">require</span> <span class="string">'ffi'</span>
+</span><span class="global">require</span> <span class="string">'wf.wf_h'</span> <span class="comment">-- Load the wf.h c header.
+</span>
+<span class="keyword">local</span> ffi = <span class="global">require</span> <span class="string">'ffi'</span>
 <span class="keyword">local</span> util = <span class="global">require</span> <span class="string">'wf.util'</span>
 <span class="keyword">local</span> Log = <span class="global">require</span> <span class="string">'wf.log'</span>
-
-<span class="comment">-- Load the wf.h c header.
-</span><span class="global">require</span> <span class="string">'wf.wf_h'</span>
 
 <span class="comment">-- FFI Logic
 </span>
@@ -59,10 +58,10 @@
 
 <span class="comment">-- There is a cap on the amount of allowed lua-created C callbacks so we
 </span><span class="comment">-- reuse this same one for all signals.
-</span>Raw.event_callback = ffi.cast(<span class="string">"wf_EventCallback"</span>,
+</span>Raw.event_callback = ffi.cast(<span class="string">"wflua_EventCallback"</span>,
                               <span class="keyword">function</span>(emitter, event_type, signal, signal_data)
     <span class="keyword">local</span> success, err = <span class="global">pcall</span>(<span class="keyword">function</span>()
-        <span class="keyword">if</span> event_type == ffi.C.WF_EVENT_TYPE_SIGNAL <span class="keyword">then</span>
+        <span class="keyword">if</span> event_type == ffi.C.WFLUA_EVENT_TYPE_SIGNAL <span class="keyword">then</span>
             <span class="comment">-- NOTE: The address of the emitter is assumed to be constant for any
 </span>            <span class="comment">-- given emitter.
 </span>            <span class="comment">-- A signal was emitted to the signal_connection.
@@ -73,7 +72,7 @@
                                         .signals
             emitter_signals[ffi.<span class="global">string</span>(signal)]:call(emitter, signal_data)
 
-        <span class="keyword">elseif</span> event_type == ffi.C.WF_EVENT_TYPE_EMITTER_DESTROYED <span class="keyword">then</span>
+        <span class="keyword">elseif</span> event_type == ffi.C.WFLUA_EVENT_TYPE_EMITTER_DESTROYED <span class="keyword">then</span>
             Log.<span class="global">debug</span>(<span class="string">'EMITTER DIED: '</span>, object_id(emitter))
 
             <span class="keyword">local</span> emitter_id = object_id(emitter)
@@ -91,7 +90,7 @@
     Log.<span class="global">debug</span>(<span class="string">'subscribing to '</span> .. emitter .. <span class="string">' lifetime'</span>)
 
     <span class="keyword">if</span> <span class="keyword">not</span> self.lifetime_callbacks[emitter] <span class="keyword">then</span>
-        ffi.C.wf_lifetime_subscribe(emitter_ptr)
+        ffi.C.wflua_lifetime_subscribe(emitter_ptr)
         self.lifetime_callbacks[emitter] = util.Hook {handler}
     <span class="keyword">else</span>
         self.lifetime_callbacks[emitter]:hook(handler)
@@ -105,7 +104,7 @@
     self.lifetime_callbacks[emitter]:unhook(handler)
 
     <span class="keyword">if</span> self.lifetime_callbacks[emitter]:is_empty() <span class="keyword">then</span>
-        ffi.C.wf_lifetime_unsubscribe(emitter_ptr)
+        ffi.C.wflua_lifetime_unsubscribe(emitter_ptr)
         self.lifetime_callbacks[emitter] = <span class="keyword">nil</span>
     <span class="keyword">end</span>
 <span class="keyword">end</span>
@@ -120,7 +119,7 @@
             <span class="comment">-- Clean up when the C++ emitter object dies.
 </span>            lifetime_handler = self:subscribe_lifetime(emitter_ptr, <span class="keyword">function</span>()
                 self.signal_callbacks[emitter] = <span class="keyword">nil</span>
-                ffi.C.wf_signal_unsubscribe_all(emitter_ptr)
+                ffi.C.wflua_signal_unsubscribe_all(emitter_ptr)
             <span class="keyword">end</span>),
             signals = {}
         }
@@ -128,7 +127,7 @@
 
     <span class="keyword">local</span> emitter_cbs = self.signal_callbacks[emitter].signals
     <span class="keyword">if</span> <span class="keyword">not</span> emitter_cbs[signal] <span class="keyword">then</span>
-        ffi.C.wf_signal_subscribe(emitter_ptr, signal)
+        ffi.C.wflua_signal_subscribe(emitter_ptr, signal)
 
         emitter_cbs[signal] = util.Hook {handler}
     <span class="keyword">else</span>
@@ -145,7 +144,7 @@
     emitter_cbs[signal]:unhook(handler)
 
     <span class="keyword">if</span> emitter_cbs[signal]:is_empty() <span class="keyword">then</span>
-        ffi.C.wf_signal_unsubscribe(emitter_ptr, signal)
+        ffi.C.wflua_signal_unsubscribe(emitter_ptr, signal)
 
         emitter_cbs[signal] = <span class="keyword">nil</span>
 
@@ -159,7 +158,7 @@
     <span class="keyword">end</span>
 <span class="keyword">end</span>
 
-ffi.C.wf_register_event_callback(Raw.event_callback)
+ffi.C.wflua_register_event_callback(Raw.event_callback)
 
 <span class="comment">--- Set the value of an option.
 </span><span class="comment">-- The option must already by registered by Wayfire.
@@ -262,7 +261,7 @@ ffi.C.wf_register_event_callback(Raw.event_callback)
 </span>    <span class="comment">--
 </span>    <span class="comment">-- @tparam string signal
 </span>    <span class="comment">-- @tparam fn(output,data) handler
-</span>    <a id="229"></a><span class="comment">-- @treturn fn(output,data) handler
+</span>    <a id="228"></a><span class="comment">-- @treturn fn(output,data) handler
 </span>    <span class="keyword">function</span> outputs:hook(signal, handler)
         <span class="keyword">if</span> <span class="keyword">not</span> self._signal_handlers[signal] <span class="keyword">then</span>
             <span class="keyword">local</span> hook = util.Hook()
@@ -300,7 +299,7 @@ ffi.C.wf_register_event_callback(Raw.event_callback)
 </span>    <span class="comment">-- wf.outputs:unhook('view-focused', handler)
 </span>    <span class="comment">--
 </span>    <span class="comment">-- @tparam string signal
-</span>    <a id="267"></a><span class="comment">-- @tparam fn(output,data) handler
+</span>    <a id="266"></a><span class="comment">-- @tparam fn(output,data) handler
 </span>    <span class="keyword">function</span> outputs:unhook(signal, handler)
         <span class="keyword">if</span> <span class="keyword">not</span> self._signal_handlers[signal] <span class="keyword">then</span>
             <span class="global">error</span>(<span class="string">'Signal "'</span> .. signal ..
@@ -340,7 +339,7 @@ ffi.C.wf_register_event_callback(Raw.event_callback)
 </span><span class="comment">-- -- [section]
 </span><span class="comment">-- -- option = value
 </span><span class="comment">-- -- ...
-</span><a id="307"></a><span class="comment">-- @tparam {section,option=value,...} args
+</span><a id="306"></a><span class="comment">-- @tparam {section,option=value,...} args
 </span><span class="keyword">function</span> Wf.set(args)
     <span class="keyword">if</span> <span class="global">type</span>(args) ~= <span class="string">'table'</span> <span class="keyword">then</span>
         <span class="global">error</span>(<span class="string">[[The arguments to set should be passed in the form:
@@ -376,7 +375,7 @@ ffi.C.wf_register_event_callback(Raw.event_callback)
         <span class="comment">--- Get the output's workarea geometry.
 </span>        <span class="comment">-- @tparam Output self the output.
 </span>        <span class="comment">-- @treturn Geometry the the output's workarea.
-</span>        get_workarea = <span class="keyword">function</span>(self)<a id="342"></a>
+</span>        get_workarea = <span class="keyword">function</span>(self)<a id="341"></a>
             <span class="keyword">return</span> ffi.C.wf_Output_get_workarea(self)
         <span class="keyword">end</span>
     }
@@ -433,35 +432,35 @@ ffi.C.wf_register_event_callback(Raw.event_callback)
         <span class="comment">--- Get the view's title.
 </span>        <span class="comment">-- @tparam View self the view.
 </span>        <span class="comment">-- @treturn string the view's title.
-</span>        get_title = <span class="keyword">function</span>(self)<a id="399"></a>
+</span>        get_title = <span class="keyword">function</span>(self)<a id="398"></a>
             <span class="keyword">return</span> ffi.<span class="global">string</span>(ffi.C.wf_View_get_title(self))
         <span class="keyword">end</span>,
 
         <span class="comment">--- Get the view's app id.
 </span>        <span class="comment">-- @tparam View self the view.
 </span>        <span class="comment">-- @treturn string the view's app id.
-</span>        get_app_id = <span class="keyword">function</span>(self)<a id="406"></a>
+</span>        get_app_id = <span class="keyword">function</span>(self)<a id="405"></a>
             <span class="keyword">return</span> ffi.<span class="global">string</span>(ffi.C.wf_View_get_app_id(self))
         <span class="keyword">end</span>,
 
         <span class="comment">--- Get the view's wm geometry.
 </span>        <span class="comment">-- @tparam View self the view.
 </span>        <span class="comment">-- @treturn Geometry the view's wm geometry.
-</span>        get_wm_geometry = <span class="keyword">function</span>(self)<a id="413"></a>
+</span>        get_wm_geometry = <span class="keyword">function</span>(self)<a id="412"></a>
             <span class="keyword">return</span> ffi.C.wf_View_get_wm_geometry(self)
         <span class="keyword">end</span>,
 
         <span class="comment">--- Get the view's output geometry.
 </span>        <span class="comment">-- @tparam View self the view.
 </span>        <span class="comment">-- @treturn Geometry the view's output geometry.
-</span>        get_output_geometry = <span class="keyword">function</span>(self)<a id="420"></a>
+</span>        get_output_geometry = <span class="keyword">function</span>(self)<a id="419"></a>
             <span class="keyword">return</span> ffi.C.wf_View_get_output_geometry(self)
         <span class="keyword">end</span>,
 
         <span class="comment">--- Get the view's bounding box.
 </span>        <span class="comment">-- @tparam View self the view.
 </span>        <span class="comment">-- @treturn Geometry the view's bounding box.
-</span>        get_bounding_box = <span class="keyword">function</span>(self)<a id="427"></a>
+</span>        get_bounding_box = <span class="keyword">function</span>(self)<a id="426"></a>
             <span class="keyword">return</span> ffi.C.wf_View_get_bounding_box(self)
         <span class="keyword">end</span>,
 
@@ -548,7 +547,7 @@ ffi.C.wf_register_event_callback(Raw.event_callback)
 </div> <!-- id="main" -->
 <div id="about">
 <i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
-<i style="float:right;">Last updated 2021-11-19 19:18:38 </i>
+<i style="float:right;">Last updated 2021-11-22 16:37:37 </i>
 </div> <!-- id="about" -->
 </div> <!-- id="container" -->
 </body>
