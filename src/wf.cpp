@@ -1,4 +1,6 @@
-#include "wf-lua.hpp"
+extern "C" {
+#include "wf.h"
+}
 
 #include <wayfire/config/compound-option.hpp>
 #include <wayfire/config/config-manager.hpp>
@@ -8,10 +10,7 @@
 #include <wayfire/signal-definitions.hpp>
 #include <wayfire/workspace-manager.hpp>
 
-using CfgSection = std::shared_ptr<wf::config::section_t>;
-
-template <typename T>
-using CfgOption = std::shared_ptr<wf::config::option_t<T>>;
+#include <unordered_map>
 
 /// Temporary string buffer. Contents are invalid after any next function call.
 static std::string string_buf;
@@ -23,6 +22,40 @@ inline constexpr wf_Geometry wrap_geo(wf::geometry_t geo) {
 inline constexpr wf::geometry_t unwrap_geo(wf_Geometry geo) {
     return {geo.x, geo.y, geo.width, geo.height};
 }
+
+struct LifetimeTracker : public wf::custom_data_t {
+    struct CallbackPair {
+        wf_LifetimeCallback callback;
+        void *data;
+    };
+
+    wf::object_base_t *obj;                ///< Tracked object
+    std::vector<CallbackPair> callbacks{}; ///< Callbacks
+
+    LifetimeTracker(wf::object_base_t *obj) : obj(obj) {}
+    virtual ~LifetimeTracker() {
+        for (auto cb : callbacks)
+            cb.callback(obj, cb.data);
+    }
+
+    void add_callback(wf_LifetimeCallback cb, void *data) {
+        callbacks.push_back({cb, data});
+    }
+    void remove_callback(wf_LifetimeCallback cb) {
+        for (auto i = callbacks.rbegin(); i < callbacks.rend(); i++) {
+            if (i->callback == cb) {
+                callbacks.erase(i.base());
+                return;
+            }
+        }
+
+        LOGE("Cannnot find callback to unsubscribe.");
+    }
+};
+
+/// Global signal connection table.
+static std::unordered_map<wf_SignalCallback, wf::signal_connection_t>
+    signal_callbacks;
 
 extern "C" {
 
@@ -45,35 +78,51 @@ wf_Error wf_set_option_str(const char *section, const char *option,
     return wf_Error::WF_INVALID_OPTION_VALUE;
 }
 
-void wf_register_event_callback(const wf_EventCallback callback) {
-    wf_lua::get_plugin()->register_event_callback(callback);
-}
-
-void wf_lifetime_subscribe(void *object_) {
+void wf_lifetime_subscribe(void *object_, wf_LifetimeCallback cb, void *data) {
     auto object = static_cast<wf::object_base_t *>(object_);
-    wf_lua::get_plugin()->lifetime_subscribe(object);
+    auto tracker = object->get_data<LifetimeTracker>();
+    if (!tracker) {
+        auto owned_tracker = std::make_unique<LifetimeTracker>(object);
+        tracker = owned_tracker.get();
+        object->store_data(std::move(owned_tracker));
+    }
+
+    tracker->add_callback(cb, data);
 }
 
-void wf_lifetime_unsubscribe(void *object_) {
+void wf_lifetime_unsubscribe(void *object_, wf_LifetimeCallback cb) {
     auto object = static_cast<wf::object_base_t *>(object_);
-    wf_lua::get_plugin()->lifetime_unsubscribe(object);
+    auto tracker = object->get_data<LifetimeTracker>();
+    if (!tracker) {
+        LOGE("No lifetime tracker to unsubcribe from.");
+        return;
+    }
+
+    tracker->remove_callback(cb);
+    if (tracker->callbacks.empty())
+        object->erase_data<LifetimeTracker>();
 }
 
-void wf_signal_subscribe(void *object_, const char *signal_) {
+wf_SignalConnection *wf_create_signal_connection(wf_SignalCallback cb,
+                                                 void *data1, void *data2) {
+    return (wf_SignalConnection *)(new wf::signal_connection_t(
+        [=](auto *sig_data) { cb((void *)sig_data, data1, data2); }));
+}
+void wf_destroy_signal_connection(wf_SignalConnection *conn) {
+    delete (wf::signal_connection_t *)conn;
+}
+void wf_signal_subscribe(void *object_, const char *signal_,
+                         wf_SignalConnection *conn) {
     string_buf = signal_;
     auto object = static_cast<wf::object_base_t *>(object_);
 
-    wf_lua::get_plugin()->signal_subscribe(object, string_buf);
+    object->connect_signal(string_buf, (wf::signal_connection_t *)conn);
 }
 
-void wf_signal_unsubscribe(void *object_, const char *signal_) {
+void wf_signal_unsubscribe(void *object_, wf_SignalConnection *conn) {
     const auto object = static_cast<wf::object_base_t *>(object_);
-    wf_lua::get_plugin()->signal_unsubscribe(object, signal_);
-}
 
-void wf_signal_unsubscribe_all(void *object_) {
-    const auto object = static_cast<wf::object_base_t *>(object_);
-    wf_lua::get_plugin()->signal_unsubscribe_all(object);
+    object->disconnect_signal((wf::signal_connection_t *)conn);
 }
 
 wf_Output *wf_get_next_output(wf_Output *prev) {

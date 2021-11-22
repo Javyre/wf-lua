@@ -30,11 +30,8 @@ before building.
 
 To build and install from source:
 ```sh
-# Generate the build directory:
-meson --prefix /usr --buildtype=release build
-
 # Build and install wf-lua:
-sudo ninja -C build install
+sudo zig build install --prefix /usr -Drelease-fast
 ```
 
 ## Documentation
@@ -52,8 +49,11 @@ ldoc .
 
 Contributions are welcome.
 
-Wf-lua uses the `c++17` standard and a modified `llvm` coding style
-defined in `.clang_format`. Please run `ninja -C build clang-format`
-to run the formatter before every commit.
+Wf-lua uses `zig fmt` for `zig` source code and nudge the formatter as much as
+possible to keep line length under 80 characters.
+
+Wf-lua uses the `c++17` standard and a modified `llvm` coding style defined in
+`.clang_format`. Please run `clang-format --style=file -i <FILENAME>` on any
+`c/c++` source. to run the formatter before every commit.
 
 We also use `lua-format` for lua source formatting (install from luarocks).

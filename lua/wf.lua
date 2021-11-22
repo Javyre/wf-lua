@@ -5,12 +5,11 @@
 -- @alias Wf
 -- @module wf
 --
+require 'wf.wf_h' -- Load the wf.h c header.
+
 local ffi = require 'ffi'
 local util = require 'wf.util'
 local Log = require 'wf.log'
-
--- Load the wf.h c header.
-require 'wf.wf_h'
 
 -- FFI Logic
 
@@ -22,10 +21,10 @@ end
 
 -- There is a cap on the amount of allowed lua-created C callbacks so we
 -- reuse this same one for all signals.
-Raw.event_callback = ffi.cast("wf_EventCallback",
+Raw.event_callback = ffi.cast("wflua_EventCallback",
                               function(emitter, event_type, signal, signal_data)
     local success, err = pcall(function()
-        if event_type == ffi.C.WF_EVENT_TYPE_SIGNAL then
+        if event_type == ffi.C.WFLUA_EVENT_TYPE_SIGNAL then
             -- NOTE: The address of the emitter is assumed to be constant for any
             -- given emitter.
             -- A signal was emitted to the signal_connection.
@@ -36,7 +35,7 @@ Raw.event_callback = ffi.cast("wf_EventCallback",
                                         .signals
             emitter_signals[ffi.string(signal)]:call(emitter, signal_data)
 
-        elseif event_type == ffi.C.WF_EVENT_TYPE_EMITTER_DESTROYED then
+        elseif event_type == ffi.C.WFLUA_EVENT_TYPE_EMITTER_DESTROYED then
             Log.debug('EMITTER DIED: ', object_id(emitter))
 
             local emitter_id = object_id(emitter)
@@ -54,7 +53,7 @@ function Raw:subscribe_lifetime(emitter_ptr, handler)
     Log.debug('subscribing to ' .. emitter .. ' lifetime')
 
     if not self.lifetime_callbacks[emitter] then
-        ffi.C.wf_lifetime_subscribe(emitter_ptr)
+        ffi.C.wflua_lifetime_subscribe(emitter_ptr)
         self.lifetime_callbacks[emitter] = util.Hook {handler}
     else
         self.lifetime_callbacks[emitter]:hook(handler)
@@ -68,7 +67,7 @@ function Raw:unsubscribe_lifetime(emitter_ptr, handler)
     self.lifetime_callbacks[emitter]:unhook(handler)
 
     if self.lifetime_callbacks[emitter]:is_empty() then
-        ffi.C.wf_lifetime_unsubscribe(emitter_ptr)
+        ffi.C.wflua_lifetime_unsubscribe(emitter_ptr)
         self.lifetime_callbacks[emitter] = nil
     end
 end
@@ -83,7 +82,7 @@ function Raw:subscribe(emitter_ptr, signal, handler)
             -- Clean up when the C++ emitter object dies.
             lifetime_handler = self:subscribe_lifetime(emitter_ptr, function()
                 self.signal_callbacks[emitter] = nil
-                ffi.C.wf_signal_unsubscribe_all(emitter_ptr)
+                ffi.C.wflua_signal_unsubscribe_all(emitter_ptr)
             end),
             signals = {}
         }
@@ -91,7 +90,7 @@ function Raw:subscribe(emitter_ptr, signal, handler)
 
     local emitter_cbs = self.signal_callbacks[emitter].signals
     if not emitter_cbs[signal] then
-        ffi.C.wf_signal_subscribe(emitter_ptr, signal)
+        ffi.C.wflua_signal_subscribe(emitter_ptr, signal)
 
         emitter_cbs[signal] = util.Hook {handler}
     else
@@ -108,7 +107,7 @@ function Raw:unsubscribe(emitter_ptr, signal, handler)
     emitter_cbs[signal]:unhook(handler)
 
     if emitter_cbs[signal]:is_empty() then
-        ffi.C.wf_signal_unsubscribe(emitter_ptr, signal)
+        ffi.C.wflua_signal_unsubscribe(emitter_ptr, signal)
 
         emitter_cbs[signal] = nil
 
@@ -122,7 +121,7 @@ function Raw:unsubscribe(emitter_ptr, signal, handler)
     end
 end
 
-ffi.C.wf_register_event_callback(Raw.event_callback)
+ffi.C.wflua_register_event_callback(Raw.event_callback)
 
 --- Set the value of an option.
 -- The option must already by registered by Wayfire.

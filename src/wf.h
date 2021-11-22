@@ -5,25 +5,24 @@ typedef enum {
     WF_INVALID_OPTION,
 } wf_Error;
 
-typedef enum {
-    WF_EVENT_TYPE_SIGNAL,
-    WF_EVENT_TYPE_EMITTER_DESTROYED,
-} wf_EventType;
-
-typedef void (*wf_EventCallback)(void *emitter, wf_EventType event_type,
-                                 const char *signal, void *data);
-
 wf_Error wf_set_option_str(const char *section, const char *option,
                            const char *val);
 
-void wf_register_event_callback(const wf_EventCallback callback);
+typedef void (*wf_LifetimeCallback)(void *emitter, void *data);
 
-void wf_lifetime_subscribe(void *object);
-void wf_lifetime_unsubscribe(void *object);
+void wf_lifetime_subscribe(void *object, wf_LifetimeCallback cb, void *data);
+void wf_lifetime_unsubscribe(void *object, wf_LifetimeCallback cb);
 
-void wf_signal_subscribe(void *object, const char *signal);
-void wf_signal_unsubscribe(void *object, const char *signal);
-void wf_signal_unsubscribe_all(void *object);
+typedef void (*wf_SignalCallback)(void *signal_data, void *data1, void *data2);
+typedef struct wf_SignalConnection wf_SignalConnection;
+
+wf_SignalConnection *wf_create_signal_connection(wf_SignalCallback cb,
+                                                 void *data1, void *data2);
+void wf_destroy_signal_connection(wf_SignalConnection *conn);
+
+void wf_signal_subscribe(void *object, const char *signal,
+                         wf_SignalConnection *handler);
+void wf_signal_unsubscribe(void *object, wf_SignalConnection *handler);
 
 typedef struct {
     int x, y;
