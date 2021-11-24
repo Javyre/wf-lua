@@ -214,6 +214,10 @@ do
     -- The type of `data` depends on the signal being listened for.
     -- See (TODO: signal definitions page).
     --
+    -- Note that this differs from calling `Output:hook()` on a specific
+    -- `output` as we are hooking into this signal for *all* outputs
+    -- simultaneously.
+    --
     -- @usage 
     -- local wf = require 'wf'
     --
@@ -348,6 +352,36 @@ ffi.metatype("wf_Pointf", {
     end
 })
 
+--- Lua-local data attached to wayfire objects.
+-- @type ObjectData
+-- @local
+local ObjectData = {
+    data = {},
+
+    --- Store some data.
+    --
+    -- Delete some stored data by setting it to `nil`.
+    -- @local
+    set = function(self, object_ptr, key, value)
+        local object = object_id(object_ptr)
+        if not self.data[object] then
+            if value == nil then return end
+
+            self.data[object] = {[key] = value}
+            Raw:subscribe_lifetime(object_ptr,
+                                   function() self.data[object] = nil end)
+        else
+            self.data[object][key] = value
+        end
+    end,
+
+    --- Retrieve some stored data.
+    -- @local
+    get = function(self, object_ptr, key)
+        return self.data[object_id(object_ptr)][key]
+    end
+}
+
 ---A wayfire output.
 -- @usage local view = -- some View
 -- local output = view:get_output()
@@ -440,39 +474,59 @@ ffi.metatype("wf_Output", {
         -- @treturn Geometry the the output's workarea.
         get_workarea = function(self)
             return ffi.C.wf_Output_get_workarea(self)
+        end,
+
+        --- Hook into a signal on this output.
+        --
+        -- Start listening for and calling `handler` on this signal. 
+        -- The type of `data` depends on the signal being listened for.
+        -- See (TODO: signal definitions page).
+        --
+        -- @usage output:hook('view-mapped', function(output, data)
+        --     print('View ', data.view:get_title(), ' mapped!')
+        -- end)
+        -- @usage assert(handler == output:hook('view-focused', handler))
+        --
+        -- @tparam Output self
+        -- @tparam string signal
+        -- @tparam fn(output,data) handler
+        -- @treturn fn(output,data) handler
+        hook = function(self, signal, handler)
+            local raw_handler = function(_emitter, data)
+                data = Raw:convert_signal_data('output', signal, data)
+                handler(self, data)
+            end
+
+            ObjectData:set(self, handler, raw_handler)
+            Raw:subscribe(self, signal, raw_handler)
+            return handler
+        end,
+
+        --- Unhook from a signal on this output.
+        --
+        -- Stop listening for and calling `handler` on this signal.
+        --
+        -- @usage 
+        -- local handler = output:hook('view-focused',
+        --                             function(output, data) end)
+        -- output:unhook('view-focused', handler)
+        --
+        -- @usage local handler = function() end
+        -- output:hook('view-mapped', handler)
+        -- output:hook('view-focused', handler)
+        -- output:unhook('view-mapped', handler)
+        -- output:unhook('view-focused', handler)
+        --
+        -- @tparam Output self
+        -- @tparam string signal
+        -- @tparam fn(output,data) handler
+        unhook = function(self, signal, handler)
+            local raw_handler = ObjectData:get(self, handler)
+            Raw:unsubscribe(self, signal, raw_handler)
+            ObjectData:set(self, handler, nil)
         end
     }
 })
-
---- Lua-local data attached to views.
--- @type ViewData
--- @local
-local ViewData = {
-    data = {},
-
-    --- Store some data.
-    --
-    -- Delete some stored data by setting it to `nil`.
-    -- @local
-    set = function(self, view_ptr, key, value)
-        local view = object_id(view_ptr)
-        if not self.data[view] then
-            if value == nil then return end
-
-            self.data[view] = {[key] = value}
-            Raw:subscribe_lifetime(view_ptr,
-                                   function() self.data[view] = nil end)
-        else
-            self.data[view][key] = value
-        end
-    end,
-
-    --- Retrieve some stored data.
-    -- @local
-    get = function(self, view_ptr, key)
-        return self.data[object_id(view_ptr)][key]
-    end
-}
 
 ---A wayfire view.
 -- @usage
@@ -562,7 +616,7 @@ ffi.metatype("wf_View", {
                 handler(self, data)
             end
 
-            ViewData:set(self, handler, raw_handler)
+            ObjectData:set(self, handler, raw_handler)
             Raw:subscribe(self, signal, raw_handler)
             return handler
         end,
@@ -570,6 +624,7 @@ ffi.metatype("wf_View", {
         --- Unhook from a signal on this view.
         --
         -- Stop listening for and calling `handler` on this signal.
+        --
         -- @usage local handler = view:hook('title-changed', function(view, data) end)
         -- view:unhook('title-changed', handler)
         --
@@ -583,9 +638,9 @@ ffi.metatype("wf_View", {
         -- @tparam string signal
         -- @tparam fn(view,data) handler
         unhook = function(self, signal, handler)
-            local raw_handler = ViewData:get(self, handler)
+            local raw_handler = ObjectData:get(self, handler)
             Raw:unsubscribe(self, signal, raw_handler)
-            ViewData:set(self, handler, nil)
+            ObjectData:set(self, handler, nil)
         end
     }
 })
