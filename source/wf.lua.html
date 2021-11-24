@@ -365,17 +365,117 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
     <span class="keyword">end</span>
 })
 
+<span class="comment">---Width-height dimensions.
+</span><span class="comment">-- @field width
+</span><span class="comment">-- @field height
+</span><span class="comment">-- @type Dimensions
+</span>ffi.metatype(<span class="string">"wf_Dimensions"</span>, {
+    __tostring = <span class="keyword">function</span>(self)
+        <span class="keyword">return</span> <span class="global">string</span>.format(<span class="string">"(%dx%d)"</span>, self.width, self.height)
+    <span class="keyword">end</span>
+})
+
+<span class="comment">---Floating point coordinates.
+</span><span class="comment">-- @field x
+</span><span class="comment">-- @field y
+</span><span class="comment">-- @type Pointf
+</span>ffi.metatype(<span class="string">"wf_Pointf"</span>, {
+    __tostring = <span class="keyword">function</span>(self)
+        <span class="keyword">return</span> <span class="global">string</span>.format(<span class="string">"(%f,%f)"</span>, self.x, self.y)
+    <span class="keyword">end</span>
+})
+
 <span class="comment">---A wayfire output.
+</span><span class="comment">-- @usage local view = -- some View
+</span><span class="comment">-- local output = view:get_output()
+</span><span class="comment">-- output:ensure_visible(view)
+</span><span class="comment">-- output:focus_view(view)
 </span><span class="comment">-- @type Output
 </span>ffi.metatype(<span class="string">"wf_Output"</span>, {
     __tostring = <span class="keyword">function</span>(self)
         <span class="keyword">return</span> ffi.<span class="global">string</span>(ffi.C.wf_Output_to_string(self))
     <span class="keyword">end</span>,
     __index = {
+        <span class="comment">--- Get the screen size of this output.
+</span>        <span class="comment">-- @tparam Output self the output.
+</span>        <span class="comment">-- @treturn Dimensions the screen size.
+</span>        get_screen_size = <span class="keyword">function</span>(self)<a id="365"></a>
+            <span class="keyword">return</span> ffi.C.wf_Output_get_screen_size(self)
+        <span class="keyword">end</span>,
+
+        <span class="comment">--- Get the screen size of this output as a Geometry.
+</span>        <span class="comment">-- The <code>x,y</code> of the Geometry will be 0.
+</span>        <span class="comment">-- @tparam Output self the output.
+</span>        <span class="comment">-- @treturn Geometry the screen size.
+</span>        get_relative_geometry = <span class="keyword">function</span>(self)<a id="373"></a>
+            <span class="keyword">return</span> ffi.C.wf_Output_get_relative_geometry(self)
+        <span class="keyword">end</span>,
+
+        <span class="comment">--- Get the geometry of the screen.
+</span>        <span class="comment">-- This should include the screen dimensions as well as meaningful <code>x,y</code>
+</span>        <span class="comment">-- coordinates.
+</span>        <span class="comment">-- @tparam Output self the output.
+</span>        <span class="comment">-- @treturn Geometry the screen geometry.
+</span>        get_layout_geometry = <span class="keyword">function</span>(self)<a id="382"></a>
+            <span class="keyword">return</span> ffi.C.wf_Output_get_layout_geometry(self)
+        <span class="keyword">end</span>,
+
+        <span class="comment">--- Ensure the pointer is on this output.
+</span>        <span class="comment">-- If the pointer isn't already on this output, move it.
+</span>        <span class="comment">--
+</span>        <span class="comment">-- If <code>center</code> is <code>true</code>, move the pointer to the center of the screen
+</span>        <span class="comment">-- regardless of whether it is already on this output.
+</span>        <span class="comment">-- @tparam Output self the output.
+</span>        <span class="comment">-- @tparam bool center whether to unconditionally center the pointer.
+</span>        ensure_pointer = <span class="keyword">function</span>(self, center)<a id="393"></a>
+            <span class="keyword">if</span> center == <span class="keyword">nil</span> <span class="keyword">then</span> center = <span class="keyword">false</span> <span class="keyword">end</span>
+            ffi.C.wf_Output_ensure_pointer(self, center)
+        <span class="keyword">end</span>,
+
+        <span class="comment">--- Get the cursor position relative to the output.
+</span>        <span class="comment">-- @tparam Output self the output.
+</span>        <span class="comment">-- @treturn Geometry the screen geometry.
+</span>        get_cursor_position = <span class="keyword">function</span>(self)<a id="401"></a>
+            <span class="keyword">return</span> ffi.C.wf_Output_get_cursor_position(self)
+        <span class="keyword">end</span>,
+
+        <span class="comment">--- Get the view at the top of the workspace layer.
+</span>        <span class="comment">-- @tparam Output self the output.
+</span>        <span class="comment">-- @treturn View the view at the top of the workspace layer.
+</span>        get_top_view = <span class="keyword">function</span>(self)<a id="408"></a>
+            <span class="keyword">return</span> ffi.C.wf_Output_get_top_view(self)
+        <span class="keyword">end</span>,
+
+        <span class="comment">--- Get the most recently focused view on this output.
+</span>        <span class="comment">-- @tparam Output self the output.
+</span>        <span class="comment">-- @treturn View the view at the top of the workspace layer.
+</span>        get_active_view = <span class="keyword">function</span>(self)<a id="415"></a>
+            <span class="keyword">return</span> ffi.C.wf_Output_get_active_view(self)
+        <span class="keyword">end</span>,
+
+        <span class="comment">--- Try to focus the view on this output.
+</span>        <span class="comment">-- If <code>raise</code> is <code>true</code>, also raise it to the top of its layer.
+</span>        <span class="comment">-- @tparam Output self the output.
+</span>        <span class="comment">-- @tparam View view the view to focus.
+</span>        <span class="comment">-- @tparam bool raise whether to raise the view.
+</span>        <span class="comment">-- @treturn View the view at the top of the workspace layer.
+</span>        focus_view = <span class="keyword">function</span>(self, view, raise)<a id="425"></a>
+            <span class="keyword">if</span> raise == <span class="keyword">nil</span> <span class="keyword">then</span> raise = <span class="keyword">false</span> <span class="keyword">end</span>
+            ffi.C.wf_Output_focus_view(self, view, raise)
+        <span class="keyword">end</span>,
+
+        <span class="comment">--- Switch workspaces to make this view visible.
+</span>        <span class="comment">-- @tparam Output self the output.
+</span>        <span class="comment">-- @tparam View view the view to make visible.
+</span>        <span class="comment">-- @treturn bool whether a workspace switch occurred.
+</span>        ensure_visible = <span class="keyword">function</span>(self, view)<a id="434"></a>
+            <span class="keyword">return</span> ffi.C.wf_Output_ensure_visible(self, view)
+        <span class="keyword">end</span>,
+
         <span class="comment">--- Get the output's workarea geometry.
 </span>        <span class="comment">-- @tparam Output self the output.
 </span>        <span class="comment">-- @treturn Geometry the the output's workarea.
-</span>        get_workarea = <span class="keyword">function</span>(self)<a id="341"></a>
+</span>        get_workarea = <span class="keyword">function</span>(self)<a id="441"></a>
             <span class="keyword">return</span> ffi.C.wf_Output_get_workarea(self)
         <span class="keyword">end</span>
     }
@@ -432,35 +532,35 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
         <span class="comment">--- Get the view's title.
 </span>        <span class="comment">-- @tparam View self the view.
 </span>        <span class="comment">-- @treturn string the view's title.
-</span>        get_title = <span class="keyword">function</span>(self)<a id="398"></a>
+</span>        get_title = <span class="keyword">function</span>(self)<a id="498"></a>
             <span class="keyword">return</span> ffi.<span class="global">string</span>(ffi.C.wf_View_get_title(self))
         <span class="keyword">end</span>,
 
         <span class="comment">--- Get the view's app id.
 </span>        <span class="comment">-- @tparam View self the view.
 </span>        <span class="comment">-- @treturn string the view's app id.
-</span>        get_app_id = <span class="keyword">function</span>(self)<a id="405"></a>
+</span>        get_app_id = <span class="keyword">function</span>(self)<a id="505"></a>
             <span class="keyword">return</span> ffi.<span class="global">string</span>(ffi.C.wf_View_get_app_id(self))
         <span class="keyword">end</span>,
 
         <span class="comment">--- Get the view's wm geometry.
 </span>        <span class="comment">-- @tparam View self the view.
 </span>        <span class="comment">-- @treturn Geometry the view's wm geometry.
-</span>        get_wm_geometry = <span class="keyword">function</span>(self)<a id="412"></a>
+</span>        get_wm_geometry = <span class="keyword">function</span>(self)<a id="512"></a>
             <span class="keyword">return</span> ffi.C.wf_View_get_wm_geometry(self)
         <span class="keyword">end</span>,
 
         <span class="comment">--- Get the view's output geometry.
 </span>        <span class="comment">-- @tparam View self the view.
 </span>        <span class="comment">-- @treturn Geometry the view's output geometry.
-</span>        get_output_geometry = <span class="keyword">function</span>(self)<a id="419"></a>
+</span>        get_output_geometry = <span class="keyword">function</span>(self)<a id="519"></a>
             <span class="keyword">return</span> ffi.C.wf_View_get_output_geometry(self)
         <span class="keyword">end</span>,
 
         <span class="comment">--- Get the view's bounding box.
 </span>        <span class="comment">-- @tparam View self the view.
 </span>        <span class="comment">-- @treturn Geometry the view's bounding box.
-</span>        get_bounding_box = <span class="keyword">function</span>(self)<a id="426"></a>
+</span>        get_bounding_box = <span class="keyword">function</span>(self)<a id="526"></a>
             <span class="keyword">return</span> ffi.C.wf_View_get_bounding_box(self)
         <span class="keyword">end</span>,
 
@@ -547,7 +647,7 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
 </div> <!-- id="main" -->
 <div id="about">
 <i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
-<i style="float:right;">Last updated 2021-11-22 16:37:37 </i>
+<i style="float:right;">Last updated 2021-11-24 02:40:40 </i>
 </div> <!-- id="about" -->
 </div> <!-- id="container" -->
 </body>

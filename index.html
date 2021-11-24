@@ -63,6 +63,24 @@
 <br>
 <h2><a href="#Class_Output">Class Output </a></h2>
 <div class="function_list toc_list">
+	<div class="name"><a href="#Output:get_screen_size">Output:get_screen_size (self)</a></div>
+	<div class="summary">Get the screen size of this output.</div>
+	<div class="name"><a href="#Output:get_relative_geometry">Output:get_relative_geometry (self)</a></div>
+	<div class="summary">Get the screen size of this output as a Geometry.</div>
+	<div class="name"><a href="#Output:get_layout_geometry">Output:get_layout_geometry (self)</a></div>
+	<div class="summary">Get the geometry of the screen.</div>
+	<div class="name"><a href="#Output:ensure_pointer">Output:ensure_pointer (self, center)</a></div>
+	<div class="summary">Ensure the pointer is on this output.</div>
+	<div class="name"><a href="#Output:get_cursor_position">Output:get_cursor_position (self)</a></div>
+	<div class="summary">Get the cursor position relative to the output.</div>
+	<div class="name"><a href="#Output:get_top_view">Output:get_top_view (self)</a></div>
+	<div class="summary">Get the view at the top of the workspace layer.</div>
+	<div class="name"><a href="#Output:get_active_view">Output:get_active_view (self)</a></div>
+	<div class="summary">Get the most recently focused view on this output.</div>
+	<div class="name"><a href="#Output:focus_view">Output:focus_view (self, view, raise)</a></div>
+	<div class="summary">Try to focus the view on this output.</div>
+	<div class="name"><a href="#Output:ensure_visible">Output:ensure_visible (self, view)</a></div>
+	<div class="summary">Switch workspaces to make this view visible.</div>
 	<div class="name"><a href="#Output:get_workarea">Output:get_workarea (self)</a></div>
 	<div class="summary">Get the output's workarea geometry.</div>
 </div>
@@ -173,11 +191,96 @@ wf.outputs:unhook(<span class="string">'view-focused'</span>, handler)</pre></li
           <div class="section-description">
           A wayfire output.
           </div>
+            <h3>Usage:</h3>
+            <pre class="example section-example"><span class="keyword">local</span> view = <span class="comment">-- some View
+</span><span class="keyword">local</span> output = view:get_output()
+output:ensure_visible(view)
+output:focus_view(view)</pre>
     <dl class="function">
+    <dt>
+    <a name = "Output:get_screen_size"></a>
+    <pre class="signature"><span class="keyword">function</span> Output:get_screen_size(): <span class="backtick"><a href="index.html#Dimensions">Dimensions</a></span></pre>
+    <a style="float:right;" href="source/wf.lua.html#365">line 365</a>
+    </dt>
+    <dd>
+    Get the screen size of this output.
+</dd>
+    <dt>
+    <a name = "Output:get_relative_geometry"></a>
+    <pre class="signature"><span class="keyword">function</span> Output:get_relative_geometry(): <span class="backtick"><a href="index.html#Geometry">Geometry</a></span></pre>
+    <a style="float:right;" href="source/wf.lua.html#373">line 373</a>
+    </dt>
+    <dd>
+    Get the screen size of this output as a Geometry.
+ The <code>x,y</code> of the Geometry will be 0.
+</dd>
+    <dt>
+    <a name = "Output:get_layout_geometry"></a>
+    <pre class="signature"><span class="keyword">function</span> Output:get_layout_geometry(): <span class="backtick"><a href="index.html#Geometry">Geometry</a></span></pre>
+    <a style="float:right;" href="source/wf.lua.html#382">line 382</a>
+    </dt>
+    <dd>
+    Get the geometry of the screen.
+ This should include the screen dimensions as well as meaningful <code>x,y</code>
+ coordinates.
+</dd>
+    <dt>
+    <a name = "Output:ensure_pointer"></a>
+    <pre class="signature"><span class="keyword">function</span> Output:ensure_pointer(center: <span class="backtick"><code>bool</code></span>)</pre>
+    <a style="float:right;" href="source/wf.lua.html#393">line 393</a>
+    </dt>
+    <dd>
+    Ensure the pointer is on this output.
+ If the pointer isn't already on this output, move it.</p>
+
+<p> If <code>center</code> is <code>true</code>, move the pointer to the center of the screen
+ regardless of whether it is already on this output.
+</dd>
+    <dt>
+    <a name = "Output:get_cursor_position"></a>
+    <pre class="signature"><span class="keyword">function</span> Output:get_cursor_position(): <span class="backtick"><a href="index.html#Geometry">Geometry</a></span></pre>
+    <a style="float:right;" href="source/wf.lua.html#401">line 401</a>
+    </dt>
+    <dd>
+    Get the cursor position relative to the output.
+</dd>
+    <dt>
+    <a name = "Output:get_top_view"></a>
+    <pre class="signature"><span class="keyword">function</span> Output:get_top_view(): <span class="backtick"><a href="index.html#View">View</a></span></pre>
+    <a style="float:right;" href="source/wf.lua.html#408">line 408</a>
+    </dt>
+    <dd>
+    Get the view at the top of the workspace layer.
+</dd>
+    <dt>
+    <a name = "Output:get_active_view"></a>
+    <pre class="signature"><span class="keyword">function</span> Output:get_active_view(): <span class="backtick"><a href="index.html#View">View</a></span></pre>
+    <a style="float:right;" href="source/wf.lua.html#415">line 415</a>
+    </dt>
+    <dd>
+    Get the most recently focused view on this output.
+</dd>
+    <dt>
+    <a name = "Output:focus_view"></a>
+    <pre class="signature"><span class="keyword">function</span> Output:focus_view(view: <span class="backtick"><a href="index.html#View">View</a></span>, raise: <span class="backtick"><code>bool</code></span>): <span class="backtick"><a href="index.html#View">View</a></span></pre>
+    <a style="float:right;" href="source/wf.lua.html#425">line 425</a>
+    </dt>
+    <dd>
+    Try to focus the view on this output.
+ If <code>raise</code> is <code>true</code>, also raise it to the top of its layer.
+</dd>
+    <dt>
+    <a name = "Output:ensure_visible"></a>
+    <pre class="signature"><span class="keyword">function</span> Output:ensure_visible(view: <span class="backtick"><a href="index.html#View">View</a></span>): <span class="backtick"><code>bool</code></span></pre>
+    <a style="float:right;" href="source/wf.lua.html#434">line 434</a>
+    </dt>
+    <dd>
+    Switch workspaces to make this view visible.
+</dd>
     <dt>
     <a name = "Output:get_workarea"></a>
     <pre class="signature"><span class="keyword">function</span> Output:get_workarea(): <span class="backtick"><a href="index.html#Geometry">Geometry</a></span></pre>
-    <a style="float:right;" href="source/wf.lua.html#341">line 341</a>
+    <a style="float:right;" href="source/wf.lua.html#441">line 441</a>
     </dt>
     <dd>
     Get the output's workarea geometry.
@@ -208,7 +311,7 @@ wf.outputs:unhook(<span class="string">'view-focused'</span>, handler)</pre></li
     <dt>
     <a name = "View:get_title"></a>
     <pre class="signature"><span class="keyword">function</span> View:get_title(): <span class="backtick"><a href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span></pre>
-    <a style="float:right;" href="source/wf.lua.html#398">line 398</a>
+    <a style="float:right;" href="source/wf.lua.html#498">line 498</a>
     </dt>
     <dd>
     Get the view's title.
@@ -216,7 +319,7 @@ wf.outputs:unhook(<span class="string">'view-focused'</span>, handler)</pre></li
     <dt>
     <a name = "View:get_app_id"></a>
     <pre class="signature"><span class="keyword">function</span> View:get_app_id(): <span class="backtick"><a href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span></pre>
-    <a style="float:right;" href="source/wf.lua.html#405">line 405</a>
+    <a style="float:right;" href="source/wf.lua.html#505">line 505</a>
     </dt>
     <dd>
     Get the view's app id.
@@ -224,7 +327,7 @@ wf.outputs:unhook(<span class="string">'view-focused'</span>, handler)</pre></li
     <dt>
     <a name = "View:get_wm_geometry"></a>
     <pre class="signature"><span class="keyword">function</span> View:get_wm_geometry(): <span class="backtick"><a href="index.html#Geometry">Geometry</a></span></pre>
-    <a style="float:right;" href="source/wf.lua.html#412">line 412</a>
+    <a style="float:right;" href="source/wf.lua.html#512">line 512</a>
     </dt>
     <dd>
     Get the view's wm geometry.
@@ -232,7 +335,7 @@ wf.outputs:unhook(<span class="string">'view-focused'</span>, handler)</pre></li
     <dt>
     <a name = "View:get_output_geometry"></a>
     <pre class="signature"><span class="keyword">function</span> View:get_output_geometry(): <span class="backtick"><a href="index.html#Geometry">Geometry</a></span></pre>
-    <a style="float:right;" href="source/wf.lua.html#419">line 419</a>
+    <a style="float:right;" href="source/wf.lua.html#519">line 519</a>
     </dt>
     <dd>
     Get the view's output geometry.
@@ -240,7 +343,7 @@ wf.outputs:unhook(<span class="string">'view-focused'</span>, handler)</pre></li
     <dt>
     <a name = "View:get_bounding_box"></a>
     <pre class="signature"><span class="keyword">function</span> View:get_bounding_box(): <span class="backtick"><a href="index.html#Geometry">Geometry</a></span></pre>
-    <a style="float:right;" href="source/wf.lua.html#426">line 426</a>
+    <a style="float:right;" href="source/wf.lua.html#526">line 526</a>
     </dt>
     <dd>
     Get the view's bounding box.
@@ -248,7 +351,7 @@ wf.outputs:unhook(<span class="string">'view-focused'</span>, handler)</pre></li
     <dt>
     <a name = "View:get_output"></a>
     <pre class="signature"><span class="keyword">function</span> View:get_output(): <span class="backtick"><a href="index.html#Output">Output</a></span></pre>
-    <a style="float:right;" href="source/wf.lua.html#433">line 433</a>
+    <a style="float:right;" href="source/wf.lua.html#533">line 533</a>
     </dt>
     <dd>
     Get the view's output.
@@ -256,7 +359,7 @@ wf.outputs:unhook(<span class="string">'view-focused'</span>, handler)</pre></li
     <dt>
     <a name = "View:set_geometry"></a>
     <pre class="signature"><span class="keyword">function</span> View:set_geometry(geo: <span class="backtick"><a href="index.html#Geometry">Geometry</a></span>)</pre>
-    <a style="float:right;" href="source/wf.lua.html#439">line 439</a>
+    <a style="float:right;" href="source/wf.lua.html#539">line 539</a>
     </dt>
     <dd>
     Set the view's geometry.
@@ -268,7 +371,7 @@ wf.outputs:unhook(<span class="string">'view-focused'</span>, handler)</pre></li
     <dt>
     <a name = "View:hook"></a>
     <pre class="signature"><span class="keyword">function</span> View:hook(signal: <span class="backtick"><a href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>, handler: <span class="backtick"><code>fn(view,data)</code></span>): <span class="backtick"><code>fn(view,data)</code></span></pre>
-    <a style="float:right;" href="source/wf.lua.html#459">line 459</a>
+    <a style="float:right;" href="source/wf.lua.html#559">line 559</a>
     </dt>
     <dd>
     Hook into a signal on this view. </p>
@@ -288,7 +391,7 @@ wf.outputs:unhook(<span class="string">'view-focused'</span>, handler)</pre></li
     <dt>
     <a name = "View:unhook"></a>
     <pre class="signature"><span class="keyword">function</span> View:unhook(signal: <span class="backtick"><a href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>, handler: <span class="backtick"><code>fn(view,data)</code></span>)</pre>
-    <a style="float:right;" href="source/wf.lua.html#485">line 485</a>
+    <a style="float:right;" href="source/wf.lua.html#585">line 585</a>
     </dt>
     <dd>
     Unhook from a signal on this view. </p>
@@ -311,7 +414,7 @@ view:unhook(<span class="string">'app-id-changed'</span>, handler)</pre></li>
 </div> <!-- id="main" -->
 <div id="about">
 <i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
-<i style="float:right;">Last updated 2021-11-22 16:37:37 </i>
+<i style="float:right;">Last updated 2021-11-24 02:40:40 </i>
 </div> <!-- id="about" -->
 </div> <!-- id="container" -->
 </body>
