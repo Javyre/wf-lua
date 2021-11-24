@@ -1,3 +1,9 @@
+// NOTE: In order to stay as usable and portable as possible. We don't want to
+// use any preprocessor macros in this file.
+//
+// Because of this we can't use stdbool.h since we can't  include any headers.
+// We use _Bool which is a keyword in C99.
+
 typedef enum {
     WF_OK = 0,
     WF_INVALID_OPTION_VALUE,
@@ -29,6 +35,14 @@ typedef struct {
     int width, height;
 } wf_Geometry;
 
+typedef struct {
+    int width, height;
+} wf_Dimensions;
+
+typedef struct {
+    double x, y;
+} wf_Pointf;
+
 typedef struct wf_Output wf_Output;
 wf_Output *wf_get_next_output(wf_Output *prev);
 
@@ -45,4 +59,15 @@ wf_Output *wf_View_get_output(wf_View *view);
 void wf_View_set_geometry(wf_View *view, wf_Geometry geo);
 
 const char *wf_Output_to_string(wf_Output *output);
+wf_Dimensions wf_Output_get_screen_size(wf_Output *output);
+wf_Geometry wf_Output_get_relative_geometry(wf_Output *output);
+wf_Geometry wf_Output_get_layout_geometry(wf_Output *output);
+void wf_Output_ensure_pointer(wf_Output *output, _Bool center);
+wf_Pointf wf_Output_get_cursor_position(wf_Output *output);
+// TODO: make binding for call_plugin(). This would unlock a lot of wflua
+// usecases. (e.g. activate expo from a lua script).
+wf_View *wf_Output_get_top_view(wf_Output *output);
+wf_View *wf_Output_get_active_view(wf_Output *output);
+void wf_Output_focus_view(wf_Output *output, wf_View *v, _Bool raise);
+_Bool wf_Output_ensure_visible(wf_Output *output, wf_View *view);
 wf_Geometry wf_Output_get_workarea(wf_Output *output);

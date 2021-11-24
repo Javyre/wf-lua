@@ -33,6 +33,11 @@ handler = wf.outputs:hook('view-mapped', function(output, data)
 
         data.view:hook('title-changed', function(view, data)
             print('>>> View title changed! New title:', data.view:get_title())
+
+            local output = view:get_output()
+            output:ensure_visible(view)
+            output:focus_view(view)
+
             assert(view == data.view)
         end)
 

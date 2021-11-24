@@ -1,3 +1,4 @@
+using _Bool = bool;
 extern "C" {
 #include "wf.h"
 }
@@ -18,9 +19,39 @@ static std::string string_buf;
 inline constexpr wf_Geometry wrap_geo(wf::geometry_t geo) {
     return {geo.x, geo.y, geo.width, geo.height};
 }
-
 inline constexpr wf::geometry_t unwrap_geo(wf_Geometry geo) {
     return {geo.x, geo.y, geo.width, geo.height};
+}
+
+inline constexpr wf_Dimensions wrap_dims(wf::dimensions_t dims) {
+    return {dims.width, dims.height};
+}
+inline constexpr wf::dimensions_t unwrap_dims(wf_Dimensions dims) {
+    return {dims.width, dims.height};
+}
+
+inline constexpr wf_Pointf wrap_pointf(wf::pointf_t point) {
+    return {point.x, point.y};
+}
+inline constexpr wf::pointf_t unwrap_pointf(wf_Pointf point) {
+    return {point.x, point.y};
+}
+
+inline constexpr wf_View *wrap_view(wf::view_interface_t *view) {
+    return (wf_View *)view;
+}
+inline constexpr wf_View *wrap_view(wayfire_view view) {
+    return (wf_View *)view.get();
+}
+inline constexpr wf::view_interface_t *unwrap_view(wf_View *view) {
+    return (wf::view_interface_t *)view;
+}
+
+inline constexpr wf_Output *wrap_output(wf::output_t *output) {
+    return (wf_Output *)output;
+}
+inline constexpr wf::output_t *unwrap_output(wf_Output *output) {
+    return (wf::output_t *)output;
 }
 
 struct LifetimeTracker : public wf::custom_data_t {
@@ -127,12 +158,11 @@ void wf_signal_unsubscribe(void *object_, wf_SignalConnection *conn) {
 
 wf_Output *wf_get_next_output(wf_Output *prev) {
     const auto &outputs = wf::get_core().output_layout;
-    return (wf_Output *)outputs->get_next_output((wf::output_t *)prev);
+    return wrap_output(outputs->get_next_output(unwrap_output(prev)));
 }
 
 wf_View *wf_get_signaled_view(void *sig_data) {
-    return (wf_View *)wf::get_signaled_view((wf::signal_data_t *)sig_data)
-        .get();
+    return wrap_view(wf::get_signaled_view((wf::signal_data_t *)sig_data));
 }
 
 #define WRAP_STRING_METHOD(CTYPE, METHOD, TYPE)                                \
@@ -148,24 +178,54 @@ WRAP_STRING_METHOD(wf_Output, to_string, wf::output_t)
 #undef DEF_TO_STRING
 
 wf_Geometry wf_View_get_wm_geometry(wf_View *view) {
-    return wrap_geo(((wf::view_interface_t *)view)->get_wm_geometry());
+    return wrap_geo(unwrap_view(view)->get_wm_geometry());
 }
 wf_Geometry wf_View_get_output_geometry(wf_View *view) {
-    return wrap_geo(((wf::view_interface_t *)view)->get_output_geometry());
+    return wrap_geo(unwrap_view(view)->get_output_geometry());
 }
 wf_Geometry wf_View_get_bounding_box(wf_View *view) {
-    return wrap_geo(((wf::view_interface_t *)view)->get_bounding_box());
+    return wrap_geo(unwrap_view(view)->get_bounding_box());
 }
 
 wf_Output *wf_View_get_output(wf_View *view) {
-    return (wf_Output *)((wf::view_interface_t *)view)->get_output();
+    return wrap_output(unwrap_view(view)->get_output());
 }
 
 void wf_View_set_geometry(wf_View *view, wf_Geometry geo) {
-    ((wf::view_interface_t *)view)->set_geometry(unwrap_geo(geo));
+    unwrap_view(view)->set_geometry(unwrap_geo(geo));
 }
 
+wf_Dimensions wf_Output_get_screen_size(wf_Output *output) {
+    return wrap_dims(unwrap_output(output)->get_screen_size());
+}
+wf_Geometry wf_Output_get_relative_geometry(wf_Output *output) {
+    return wrap_geo(unwrap_output(output)->get_relative_geometry());
+}
+wf_Geometry wf_Output_get_layout_geometry(wf_Output *output) {
+    return wrap_geo(unwrap_output(output)->get_layout_geometry());
+}
+void wf_Output_ensure_pointer(wf_Output *output, bool center) {
+    unwrap_output(output)->ensure_pointer(center);
+}
+wf_Pointf wf_Output_get_cursor_position(wf_Output *output) {
+    return wrap_pointf(unwrap_output(output)->get_cursor_position());
+}
+wf_View *wf_Output_get_top_view(wf_Output *output) {
+    return wrap_view(unwrap_output(output)->get_top_view());
+}
+wf_View *wf_Output_get_active_view(wf_Output *output) {
+    return wrap_view(unwrap_output(output)->get_active_view());
+}
+void wf_Output_focus_view(wf_Output *output, wf_View *v, bool raise) {
+    unwrap_output(output)->focus_view(unwrap_view(v), raise);
+}
+bool wf_Output_ensure_visible(wf_Output *output, wf_View *view) {
+    return unwrap_output(output)->ensure_visible(unwrap_view(view));
+}
+
+// NOTE: this is not directly an output method. It is exposed on wf_Output for
+// simplicity.
 wf_Geometry wf_Output_get_workarea(wf_Output *output) {
-    return wrap_geo(((wf::output_t *)output)->workspace->get_workarea());
+    return wrap_geo(unwrap_output(output)->workspace->get_workarea());
 }
 }

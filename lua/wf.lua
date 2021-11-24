@@ -328,13 +328,113 @@ ffi.metatype("wf_Geometry", {
     end
 })
 
+---Width-height dimensions.
+-- @field width
+-- @field height
+-- @type Dimensions
+ffi.metatype("wf_Dimensions", {
+    __tostring = function(self)
+        return string.format("(%dx%d)", self.width, self.height)
+    end
+})
+
+---Floating point coordinates.
+-- @field x
+-- @field y
+-- @type Pointf
+ffi.metatype("wf_Pointf", {
+    __tostring = function(self)
+        return string.format("(%f,%f)", self.x, self.y)
+    end
+})
+
 ---A wayfire output.
+-- @usage local view = -- some View
+-- local output = view:get_output()
+-- output:ensure_visible(view)
+-- output:focus_view(view)
 -- @type Output
 ffi.metatype("wf_Output", {
     __tostring = function(self)
         return ffi.string(ffi.C.wf_Output_to_string(self))
     end,
     __index = {
+        --- Get the screen size of this output.
+        -- @tparam Output self the output.
+        -- @treturn Dimensions the screen size.
+        get_screen_size = function(self)
+            return ffi.C.wf_Output_get_screen_size(self)
+        end,
+
+        --- Get the screen size of this output as a Geometry.
+        -- The `x,y` of the Geometry will be 0.
+        -- @tparam Output self the output.
+        -- @treturn Geometry the screen size.
+        get_relative_geometry = function(self)
+            return ffi.C.wf_Output_get_relative_geometry(self)
+        end,
+
+        --- Get the geometry of the screen.
+        -- This should include the screen dimensions as well as meaningful `x,y`
+        -- coordinates.
+        -- @tparam Output self the output.
+        -- @treturn Geometry the screen geometry.
+        get_layout_geometry = function(self)
+            return ffi.C.wf_Output_get_layout_geometry(self)
+        end,
+
+        --- Ensure the pointer is on this output.
+        -- If the pointer isn't already on this output, move it.
+        --
+        -- If `center` is `true`, move the pointer to the center of the screen
+        -- regardless of whether it is already on this output.
+        -- @tparam Output self the output.
+        -- @tparam bool center whether to unconditionally center the pointer.
+        ensure_pointer = function(self, center)
+            if center == nil then center = false end
+            ffi.C.wf_Output_ensure_pointer(self, center)
+        end,
+
+        --- Get the cursor position relative to the output.
+        -- @tparam Output self the output.
+        -- @treturn Geometry the screen geometry.
+        get_cursor_position = function(self)
+            return ffi.C.wf_Output_get_cursor_position(self)
+        end,
+
+        --- Get the view at the top of the workspace layer.
+        -- @tparam Output self the output.
+        -- @treturn View the view at the top of the workspace layer.
+        get_top_view = function(self)
+            return ffi.C.wf_Output_get_top_view(self)
+        end,
+
+        --- Get the most recently focused view on this output.
+        -- @tparam Output self the output.
+        -- @treturn View the view at the top of the workspace layer.
+        get_active_view = function(self)
+            return ffi.C.wf_Output_get_active_view(self)
+        end,
+
+        --- Try to focus the view on this output.
+        -- If `raise` is `true`, also raise it to the top of its layer.
+        -- @tparam Output self the output.
+        -- @tparam View view the view to focus.
+        -- @tparam bool raise whether to raise the view.
+        -- @treturn View the view at the top of the workspace layer.
+        focus_view = function(self, view, raise)
+            if raise == nil then raise = false end
+            ffi.C.wf_Output_focus_view(self, view, raise)
+        end,
+
+        --- Switch workspaces to make this view visible.
+        -- @tparam Output self the output.
+        -- @tparam View view the view to make visible.
+        -- @treturn bool whether a workspace switch occurred.
+        ensure_visible = function(self, view)
+            return ffi.C.wf_Output_ensure_visible(self, view)
+        end,
+
         --- Get the output's workarea geometry.
         -- @tparam Output self the output.
         -- @treturn Geometry the the output's workarea.
