@@ -15,17 +15,6 @@ pub fn build(b: *Builder) !void {
     // TODO: make this path configurable.
     const lua_runtime_dir = "share/wayfire/lua";
 
-    const cpp_opts = [_][]const u8{
-        "-Wall",
-        "-Wextra",
-        "-Werror",
-        "-O3",
-        "-g",
-        "-std=c++17",
-        "-fPIC",
-        "-DWLR_USE_UNSTABLE",
-        "-DWAYFIRE_PLUGIN",
-    };
     const cpp_command =
         "clang++ $(pkg-config --cflags wayfire) " ++
         "-Wall -Wextra -Werror -O3 -g -std=c++17 " ++
@@ -66,8 +55,6 @@ pub fn build(b: *Builder) !void {
         // TODO: change to linkLibCpp when zig version is bumped
         plugin.linkSystemLibrary("c++");
         plugin.linkSystemLibrary("wayfire");
-        plugin.linkSystemLibrary("wf-config");
-        plugin.linkSystemLibrary("wlroots");
         plugin.linkSystemLibrary("luajit");
 
         plugin.defineCMacro("WLR_USE_UNSTABLE");
