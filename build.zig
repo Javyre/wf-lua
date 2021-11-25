@@ -10,7 +10,10 @@ pub fn build(b: *Builder) !void {
     // between Debug, ReleaseSafe, ReleaseFast, and ReleaseSmall.
     const mode = b.standardReleaseOptions();
 
-    // TODO: read this path from pkgconfig variable of wayfire.
+    // NOTE: Wayfire paths aren't read from pkg-config as the values set by
+    // wayfire are all absolute paths and thus would not respect the
+    // installation prefix.
+    const wf_plugin_dir = "lib/wayfire";
     const wf_metadata_dir = "share/wayfire/metadata";
     const lua_runtime_dir = b.option(
         []const u8,
@@ -70,19 +73,24 @@ pub fn build(b: *Builder) !void {
         );
 
         plugin.setBuildMode(mode);
-        plugin.override_dest_dir = InstallDir{ .Custom = "lib/wayfire/" };
+        plugin.override_dest_dir = InstallDir{ .Custom = wf_plugin_dir };
         plugin.force_pic = true;
         plugin.rdynamic = true;
-        // plugin.install();
-        const install_plugin = b.addInstallArtifact(plugin);
 
+        // Plugin depends on C++ Objects
         for (cpp_objs.items) |obj_step| {
             plugin.step.dependOn(&obj_step.step);
         }
+
+        const install_plugin = b.addInstallArtifact(plugin);
+
+        // C++ Objects Cleanup depends on Plugin
+        // Install Plugin      depends on C++ Objects Cleanup
         for (cpp_cleanup.items) |cleanup| {
             cleanup.step.dependOn(&plugin.step);
             install_plugin.step.dependOn(&cleanup.step);
         }
+
         b.getInstallStep().dependOn(&install_plugin.step);
     }
 
