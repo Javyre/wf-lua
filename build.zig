@@ -12,8 +12,12 @@ pub fn build(b: *Builder) !void {
 
     // TODO: read this path from pkgconfig variable of wayfire.
     const wf_metadata_dir = "share/wayfire/metadata";
-    // TODO: make this path configurable.
-    const lua_runtime_dir = "share/wayfire/lua";
+    const lua_runtime_dir = b.option(
+        []const u8,
+        "lua-runtime-dir",
+        "The directory where lua files are installed." ++
+            " (relative to the install prefix)",
+    ) orelse "share/wayfire/lua";
 
     const cpp_command =
         "clang++ $(pkg-config --cflags wayfire) " ++
