@@ -10,7 +10,7 @@ const LuaError = error{
     RunFileFailed,
 };
 
-pub fn do_string(L: LuaState, chunk: [:0]const u8) LuaError!void {
+pub fn doString(L: LuaState, chunk: [:0]const u8) LuaError!void {
     if (c.luaL_loadstring(L, chunk) != 0) {
         std.log.err(
             "Failed to load string: {s}",
@@ -28,7 +28,7 @@ pub fn do_string(L: LuaState, chunk: [:0]const u8) LuaError!void {
     }
 }
 
-pub fn do_file(L: LuaState, file: [:0]const u8) LuaError!void {
+pub fn doFile(L: LuaState, file: [:0]const u8) LuaError!void {
     if (c.luaL_loadfile(L, file) != 0) {
         std.log.err(
             "Failed to load file: {s}",

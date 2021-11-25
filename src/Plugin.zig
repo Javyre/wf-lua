@@ -31,7 +31,7 @@ event_callback: c.wflua_EventCallback,
 /// All stored memory should be in our root allocator.
 active_connections: ActiveConnectionsMap,
 
-fn lifetime_cb(emitter: ?*c_void, data: ?*c_void) callconv(.C) void {
+fn lifetimeCB(emitter: ?*c_void, data: ?*c_void) callconv(.C) void {
     const plugin = getPlugin();
 
     std.log.debug("Object died: {x}", .{emitter.?});
@@ -43,7 +43,7 @@ fn lifetime_cb(emitter: ?*c_void, data: ?*c_void) callconv(.C) void {
     );
 }
 
-fn signal_event_cb(
+fn signalEventCB(
     sig_data: ?*c_void,
     object: ?*c_void,
     signal_: ?*c_void,
@@ -81,12 +81,12 @@ export fn wflua_register_event_callback(callback: c.wflua_EventCallback) void {
 /// Start listening for an object being destroyed.
 export fn wflua_lifetime_subscribe(object: *c_void) void {
     std.log.debug("Watching object lifetime: {x}", .{object});
-    c.wf_lifetime_subscribe(object, lifetime_cb, null);
+    c.wf_lifetime_subscribe(object, lifetimeCB, null);
 }
 /// Stop listening for an object being destroyed.
 export fn wflua_lifetime_unsubscribe(object: *c_void) void {
     std.log.debug("Stopped watching object lifetime: {x}", .{object});
-    c.wf_lifetime_unsubscribe(object, lifetime_cb);
+    c.wf_lifetime_unsubscribe(object, lifetimeCB);
 }
 
 /// Start listening for an object's signal.
@@ -107,7 +107,7 @@ export fn wflua_signal_subscribe(object: *c_void, signal: [*:0]const u8) void {
     errdefer plugin.allocator.free(owned_signal);
 
     const connection = c.wf_create_signal_connection(
-        signal_event_cb,
+        signalEventCB,
         object,
         @ptrCast(*c_void, owned_signal),
     );
@@ -255,13 +255,13 @@ pub fn init(self: *This, allocator: *Allocator) !void {
     c.luaL_openlibs(L);
 
     // Add the wf-lua runtime dir to the path.
-    try Lua.do_string(L, "package.path = package.path .. ';" ++
+    try Lua.doString(L, "package.path = package.path .. ';" ++
         build_options.LUA_RUNTIME ++ "/?.lua'");
 
     // Run the init file.
     const init_file = try getInitFile(&arena.allocator);
     std.log.info("Running init file from: {s}", .{init_file});
-    try Lua.do_file(L, init_file);
+    try Lua.doFile(L, init_file);
 
     std.log.info("Done running init.", .{});
 }
