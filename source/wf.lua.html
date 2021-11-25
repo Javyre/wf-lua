@@ -183,6 +183,10 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
         <span class="keyword">return</span> {view = ffi.C.wf_get_signaled_view(sig_data)}
     <span class="keyword">end</span>
     Raw.signal_data_converters = {
+        core = {
+            [<span class="string">'view-created'</span>] = view_signal,
+            [<span class="string">'view-system-bell'</span>] = view_signal
+        },
         output = {
             [<span class="string">'view-mapped'</span>] = view_signal,
             [<span class="string">'view-pre-unmapped'</span>] = view_signal,
@@ -265,7 +269,7 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
 </span>    <span class="comment">--
 </span>    <span class="comment">-- @tparam string signal
 </span>    <span class="comment">-- @tparam fn(output,data) handler
-</span>    <a id="232"></a><span class="comment">-- @treturn fn(output,data) handler
+</span>    <a id="236"></a><span class="comment">-- @treturn fn(output,data) handler
 </span>    <span class="keyword">function</span> outputs:hook(signal, handler)
         <span class="keyword">if</span> <span class="keyword">not</span> self._signal_handlers[signal] <span class="keyword">then</span>
             <span class="keyword">local</span> hook = util.Hook()
@@ -303,7 +307,7 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
 </span>    <span class="comment">-- wf.outputs:unhook('view-focused', handler)
 </span>    <span class="comment">--
 </span>    <span class="comment">-- @tparam string signal
-</span>    <a id="270"></a><span class="comment">-- @tparam fn(output,data) handler
+</span>    <a id="274"></a><span class="comment">-- @tparam fn(output,data) handler
 </span>    <span class="keyword">function</span> outputs:unhook(signal, handler)
         <span class="keyword">if</span> <span class="keyword">not</span> self._signal_handlers[signal] <span class="keyword">then</span>
             <span class="global">error</span>(<span class="string">'Signal "'</span> .. signal ..
@@ -343,7 +347,7 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
 </span><span class="comment">-- -- [section]
 </span><span class="comment">-- -- option = value
 </span><span class="comment">-- -- ...
-</span><a id="310"></a><span class="comment">-- @tparam {section,option=value,...} args
+</span><a id="314"></a><span class="comment">-- @tparam {section,option=value,...} args
 </span><span class="keyword">function</span> Wf.set(args)
     <span class="keyword">if</span> <span class="global">type</span>(args) ~= <span class="string">'table'</span> <span class="keyword">then</span>
         <span class="global">error</span>(<span class="string">[[The arguments to set should be passed in the form:
@@ -419,6 +423,240 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
     <span class="keyword">end</span>
 }
 
+<span class="keyword">do</span>
+    <span class="comment">-- We don't need to actually call wayfire's get_core everytime since it should
+</span>    <span class="comment">-- never change.
+</span>    <span class="keyword">local</span> core = ffi.C.wf_get_core()
+    <span class="keyword">function</span> Wf.get_core() <span class="keyword">return</span> core <span class="keyword">end</span>
+<span class="keyword">end</span>
+
+<span class="comment">---The Wayfire compositor instance.
+</span><span class="comment">-- @usage local core = wf.get_core()
+</span><span class="comment">-- -- move the cursor to (100, 100)
+</span><span class="comment">-- core:warp_cursor({100, 100})
+</span><span class="comment">-- @type Core
+</span>ffi.metatype(<span class="string">"wf_Core"</span>, {
+    __tostring = <span class="keyword">function</span>(self)
+        <span class="keyword">return</span> ffi.<span class="global">string</span>(ffi.C.wf_Core_to_string(self))
+    <span class="keyword">end</span>,
+    __index = {
+        <span class="comment">--- Set the cursor to the given name from the cursor theme.
+</span>        <span class="comment">-- @tparam Core self the wayfire instance.
+</span>        <span class="comment">-- @tparam string name the cursor name.
+</span>        set_cursor = <span class="keyword">function</span>(self, name)<a id="409"></a>
+            ffi.C.wf_Core_set_cursor(self, name)
+        <span class="keyword">end</span>,
+
+        <span class="comment">--- Request to hide the cursor.
+</span>        <span class="comment">--
+</span>        <span class="comment">-- Increments the hide-cursor reference count and hides the cursor if
+</span>        <span class="comment">-- it is not already hidden.
+</span>        <span class="comment">-- @tparam Core self the wayfire instance.
+</span>        hide_cursor = <span class="keyword">function</span>(self) ffi.C.wf_Core_hide_cursor(self) <span class="keyword">end</span>,
+
+        <span class="comment">--- Request to unhide the cursor.
+</span>        <span class="comment">--
+</span>        <span class="comment">-- Decrement the hide-cursor reference count. If it goes to 0, then the
+</span>        <span class="comment">-- cursor is actually unhidden.
+</span>        <span class="comment">-- @tparam Core self the wayfire instance.
+</span>        unhide_cursor = <span class="keyword">function</span>(self) ffi.C.wf_Core_unhide_cursor(self) <span class="keyword">end</span>,
+
+        <span class="comment">--- Move the cursor to the given point.
+</span>        <span class="comment">--
+</span>        <span class="comment">-- The point is interpreted as being in global coordinates.
+</span>        <span class="comment">-- @tparam Core self the wayfire instance.
+</span>        <span class="comment">-- @tparam Pointf position the cursor position.
+</span>        warp_cursor = <span class="keyword">function</span>(self, position)
+            ffi.C.wf_Core_warp_cursor(self, position)
+        <span class="keyword">end</span>,
+
+        <span class="comment">--- Get the cursor position in global coordinates.
+</span>        <span class="comment">--
+</span>        <span class="comment">-- @tparam Core self the wayfire instance.
+</span>        <span class="comment">-- @treturn Pointf the cursor position.
+</span>        get_cursor_position = <span class="keyword">function</span>(self)
+            <span class="keyword">return</span> ffi.C.wf_Core_get_cursor_position(self)
+        <span class="keyword">end</span>,
+
+        <span class="comment">--- Get the view that currently has cursor focus.
+</span>        <span class="comment">--
+</span>        <span class="comment">-- @tparam Core self the wayfire instance.
+</span>        <span class="comment">-- @treturn View the view that currently has cursor focus.
+</span>        get_cursor_focus_view = <span class="keyword">function</span>(self)
+            <span class="keyword">return</span> ffi.C.wf_Core_get_cursor_focus_view(self)
+        <span class="keyword">end</span>,
+
+        <span class="comment">--- Get the view that currently has touch focus.
+</span>        <span class="comment">--
+</span>        <span class="comment">-- @tparam Core self the wayfire instance.
+</span>        <span class="comment">-- @treturn View the view that currently has touch focus.
+</span>        get_touch_focus_view = <span class="keyword">function</span>(self)
+            <span class="keyword">return</span> ffi.C.wf_Core_get_touch_focus_view(self)
+        <span class="keyword">end</span>,
+
+        <span class="comment">--- Get the view at the given point.
+</span>        <span class="comment">--
+</span>        <span class="comment">-- The point is interpreted as being in global coordinates.
+</span>        <span class="comment">-- Returns <code>nil</code> if there is no view at the point.
+</span>        <span class="comment">-- @tparam Core self the wayfire instance.
+</span>        <span class="comment">-- @tparam Pointf point the point.
+</span>        <span class="comment">-- @treturn ?View the view at the given point. Or nil if none.
+</span>        get_view_at = <span class="keyword">function</span>(self, point)
+            <span class="keyword">return</span> ffi.C.wf_Core_get_view_at(self, point)
+        <span class="keyword">end</span>,
+
+        <span class="comment">--- Give a view keyboard focus.
+</span>        <span class="comment">--
+</span>        <span class="comment">-- @tparam Core self the wayfire instance.
+</span>        <span class="comment">-- @tparam View view the view to set as active.
+</span>        set_active_view = <span class="keyword">function</span>(self, view)
+            ffi.C.wf_Core_set_active_view(self, view)
+        <span class="keyword">end</span>,
+
+        <span class="comment">--- Focus the given view and it's output.
+</span>        <span class="comment">--
+</span>        <span class="comment">-- Also brings the view to the front of the stack.
+</span>        <span class="comment">-- @tparam Core self the wayfire instance.
+</span>        <span class="comment">-- @tparam View view the view to give focus to.
+</span>        focus_view = <span class="keyword">function</span>(self, view)
+            ffi.C.wf_Core_focus_view(self, view)
+        <span class="keyword">end</span>,
+
+        <span class="comment">--- Focus the given output.
+</span>        <span class="comment">--
+</span>        <span class="comment">-- @tparam Core self the wayfire instance.
+</span>        <span class="comment">-- @tparam Output output the output to give focus to.
+</span>        focus_output = <span class="keyword">function</span>(self, output)
+            ffi.C.wf_Core_focus_output(self, output)
+        <span class="keyword">end</span>,
+
+        <span class="comment">--- Get the currently focused output.
+</span>        <span class="comment">--
+</span>        <span class="comment">-- @tparam Core self the wayfire instance.
+</span>        <span class="comment">-- @treturn Output the currently focused output.
+</span>        get_active_output = <span class="keyword">function</span>(self)
+            <span class="keyword">return</span> ffi.C.wf_Core_get_active_output(self)
+        <span class="keyword">end</span>,
+
+        <span class="comment">--- Move the given view to the output.
+</span>        <span class="comment">--
+</span>        <span class="comment">-- If <code>reconf</code> is <code>true</code>, then clamp the view's geometry to the
+</span>        <span class="comment">-- target output's geometry.
+</span>        <span class="comment">-- @tparam Core self the wayfire instance.
+</span>        <span class="comment">-- @tparam View view the view to move.
+</span>        <span class="comment">-- @tparam Output new_output the output to move the view to.
+</span>        <span class="comment">-- @tparam bool reconf whether to clamp the view's geometry to the
+</span>        <span class="comment">-- target output geometry.
+</span>        move_view_to_output = <span class="keyword">function</span>(self, view, new_output, reconf)
+            <span class="keyword">if</span> reconf == <span class="keyword">nil</span> <span class="keyword">then</span> reconf = <span class="keyword">false</span> <span class="keyword">end</span>
+            ffi.C.wf_Core_move_view_to_output(self, view, new_output, reconf)
+        <span class="keyword">end</span>,
+
+        <span class="comment">--- Get the Wayland socket name of the current Wayland session.
+</span>        <span class="comment">--
+</span>        <span class="comment">-- @tparam Core self the wayfire instance.
+</span>        <span class="comment">-- @treturn string the Wayland socket name of the current Wayland
+</span>        <span class="comment">-- session.
+</span>        get_wayland_display = <span class="keyword">function</span>(self)
+            <span class="keyword">return</span> ffi.<span class="global">string</span>(ffi.C.wf_Core_get_wayland_display(self))
+        <span class="keyword">end</span>,
+
+        <span class="comment">--- Get the XWayland display name.
+</span>        <span class="comment">--
+</span>        <span class="comment">-- @tparam Core self the wayfire instance.
+</span>        <span class="comment">-- @treturn string the XWayland display name.
+</span>        get_xwayland_display = <span class="keyword">function</span>(self)
+            <span class="keyword">return</span> ffi.<span class="global">string</span>(ffi.C.wf_Core_get_xwayland_display(self))
+        <span class="keyword">end</span>,
+
+        <span class="comment">--- Run a command with the system POSIX shell.
+</span>        <span class="comment">--
+</span>        <span class="comment">-- Sets the correct <code>WAYLAND_DISPLAY</code> and <code>DISPLAY</code> variables as well as
+</span>        <span class="comment">-- others in order to make the process properly aware of the Wayfire
+</span>        <span class="comment">-- session.
+</span>        <span class="comment">--
+</span>        <span class="comment">-- @tparam Core self the wayfire instance.
+</span>        <span class="comment">-- @tparam string command the command to run.
+</span>        <span class="comment">-- @treturn int the PID of the process.
+</span>        run = <span class="keyword">function</span>(self, command) ffi.C.wf_Core_run(self, command) <span class="keyword">end</span>,
+
+        <span class="comment">--- Shutdown the whole Wayfire process.
+</span>        <span class="comment">--
+</span>        <span class="comment">-- @tparam Core self the wayfire instance.
+</span>        shutdown = <span class="keyword">function</span>(self) ffi.C.wf_Core_shutdown(self) <span class="keyword">end</span>,
+
+        <span class="comment">--- Hook into a signal on the Wayfire instance.
+</span>        <span class="comment">--
+</span>        <span class="comment">-- Start listening for and calling <code>handler</code> on this signal.
+</span>        <span class="comment">-- The type of <code>data</code> depends on the signal being listened for.
+</span>        <span class="comment">-- See (TODO: signal definitions page).
+</span>        <span class="comment">--
+</span>        <span class="comment">-- @usage wf.get_core():hook('reload-config', function(core, data)
+</span>        <span class="comment">--     print('The wayfire config has been reloaded!')
+</span>        <span class="comment">-- end)
+</span>        <span class="comment">-- @usage
+</span>        <span class="comment">-- local wf = require('wf')
+</span>        <span class="comment">--
+</span>        <span class="comment">-- -- Whatever the wayfire config file says, override the option value
+</span>        <span class="comment">-- -- as soon as it's reloaded.
+</span>        <span class="comment">-- do
+</span>        <span class="comment">--     local my_settings = function()
+</span>        <span class="comment">--         wf.set {'core', background_color = '#344B5DFF'}
+</span>        <span class="comment">--     end
+</span>        <span class="comment">--
+</span>        <span class="comment">--     local core = wf.get_core()
+</span>        <span class="comment">--     core:hook('reload-config', function(core, data)
+</span>        <span class="comment">--         -- Config was reloaded
+</span>        <span class="comment">--         my_settings()
+</span>        <span class="comment">--     end)
+</span>        <span class="comment">--
+</span>        <span class="comment">--     my_settings()
+</span>        <span class="comment">-- end
+</span>        <span class="comment">-- @usage
+</span>        <span class="comment">-- assert(handler == wf.get_core():hook('startup-finished', handler))
+</span>        <span class="comment">--
+</span>        <span class="comment">-- @tparam Core self
+</span>        <span class="comment">-- @tparam string signal
+</span>        <span class="comment">-- @tparam fn(core,data) handler
+</span>        <span class="comment">-- @treturn fn(core,data) handler
+</span>        hook = <span class="keyword">function</span>(self, signal, handler)
+            <span class="keyword">local</span> raw_handler = <span class="keyword">function</span>(_emitter, data)
+                data = Raw:convert_signal_data(<span class="string">'core'</span>, signal, data)
+                handler(self, data)
+            <span class="keyword">end</span>
+
+            ObjectData:set(self, handler, raw_handler)
+            Raw:subscribe(self, signal, raw_handler)
+            <span class="keyword">return</span> handler
+        <span class="keyword">end</span>,
+
+        <span class="comment">--- Unhook from a signal on the Wayfire instance.
+</span>        <span class="comment">--
+</span>        <span class="comment">-- Stop listening for and calling <code>handler</code> on this signal.
+</span>        <span class="comment">--
+</span>        <span class="comment">-- @usage
+</span>        <span class="comment">-- local handler = wf.get_core():hook('view-created',
+</span>        <span class="comment">--                             function(core, data) end)
+</span>        <span class="comment">-- core:unhook('view-created', handler)
+</span>        <span class="comment">--
+</span>        <span class="comment">-- @usage local core = wf.get_core()
+</span>        <span class="comment">-- local handler = function() end
+</span>        <span class="comment">-- core:hook('view-created', handler)
+</span>        <span class="comment">-- core:hook('startup-finished', handler)
+</span>        <span class="comment">-- core:unhook('view-created', handler)
+</span>        <span class="comment">-- core:unhook('startup-finished', handler)
+</span>        <span class="comment">--
+</span>        <span class="comment">-- @tparam Core self
+</span>        <span class="comment">-- @tparam string signal
+</span>        <span class="comment">-- @tparam fn(core,data) handler
+</span>        unhook = <span class="keyword">function</span>(self, signal, handler)
+            <span class="keyword">local</span> raw_handler = ObjectData:get(self, handler)
+            Raw:unsubscribe(self, signal, raw_handler)
+            ObjectData:set(self, handler, <span class="keyword">nil</span>)
+        <span class="keyword">end</span>
+    }
+})
+
 <span class="comment">---A wayfire output.
 </span><span class="comment">-- @usage local view = -- some View
 </span><span class="comment">-- local output = view:get_output()
@@ -433,7 +671,7 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
         <span class="comment">--- Get the screen size of this output.
 </span>        <span class="comment">-- @tparam Output self the output.
 </span>        <span class="comment">-- @treturn Dimensions the screen size.
-</span>        get_screen_size = <span class="keyword">function</span>(self)<a id="399"></a>
+</span>        get_screen_size = <span class="keyword">function</span>(self)
             <span class="keyword">return</span> ffi.C.wf_Output_get_screen_size(self)
         <span class="keyword">end</span>,
 
@@ -441,7 +679,7 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
 </span>        <span class="comment">-- The <code>x,y</code> of the Geometry will be 0.
 </span>        <span class="comment">-- @tparam Output self the output.
 </span>        <span class="comment">-- @treturn Geometry the screen size.
-</span>        get_relative_geometry = <span class="keyword">function</span>(self)<a id="407"></a>
+</span>        get_relative_geometry = <span class="keyword">function</span>(self)
             <span class="keyword">return</span> ffi.C.wf_Output_get_relative_geometry(self)
         <span class="keyword">end</span>,
 
@@ -450,7 +688,7 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
 </span>        <span class="comment">-- coordinates.
 </span>        <span class="comment">-- @tparam Output self the output.
 </span>        <span class="comment">-- @treturn Geometry the screen geometry.
-</span>        get_layout_geometry = <span class="keyword">function</span>(self)<a id="416"></a>
+</span>        get_layout_geometry = <span class="keyword">function</span>(self)
             <span class="keyword">return</span> ffi.C.wf_Output_get_layout_geometry(self)
         <span class="keyword">end</span>,
 
@@ -461,7 +699,7 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
 </span>        <span class="comment">-- regardless of whether it is already on this output.
 </span>        <span class="comment">-- @tparam Output self the output.
 </span>        <span class="comment">-- @tparam bool center whether to unconditionally center the pointer.
-</span>        ensure_pointer = <span class="keyword">function</span>(self, center)<a id="427"></a>
+</span>        ensure_pointer = <span class="keyword">function</span>(self, center)
             <span class="keyword">if</span> center == <span class="keyword">nil</span> <span class="keyword">then</span> center = <span class="keyword">false</span> <span class="keyword">end</span>
             ffi.C.wf_Output_ensure_pointer(self, center)
         <span class="keyword">end</span>,
@@ -469,21 +707,21 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
         <span class="comment">--- Get the cursor position relative to the output.
 </span>        <span class="comment">-- @tparam Output self the output.
 </span>        <span class="comment">-- @treturn Geometry the screen geometry.
-</span>        get_cursor_position = <span class="keyword">function</span>(self)<a id="435"></a>
+</span>        get_cursor_position = <span class="keyword">function</span>(self)
             <span class="keyword">return</span> ffi.C.wf_Output_get_cursor_position(self)
         <span class="keyword">end</span>,
 
         <span class="comment">--- Get the view at the top of the workspace layer.
 </span>        <span class="comment">-- @tparam Output self the output.
 </span>        <span class="comment">-- @treturn View the view at the top of the workspace layer.
-</span>        get_top_view = <span class="keyword">function</span>(self)<a id="442"></a>
+</span>        get_top_view = <span class="keyword">function</span>(self)
             <span class="keyword">return</span> ffi.C.wf_Output_get_top_view(self)
         <span class="keyword">end</span>,
 
         <span class="comment">--- Get the most recently focused view on this output.
 </span>        <span class="comment">-- @tparam Output self the output.
 </span>        <span class="comment">-- @treturn View the view at the top of the workspace layer.
-</span>        get_active_view = <span class="keyword">function</span>(self)<a id="449"></a>
+</span>        get_active_view = <span class="keyword">function</span>(self)
             <span class="keyword">return</span> ffi.C.wf_Output_get_active_view(self)
         <span class="keyword">end</span>,
 
@@ -493,7 +731,7 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
 </span>        <span class="comment">-- @tparam View view the view to focus.
 </span>        <span class="comment">-- @tparam bool raise whether to raise the view.
 </span>        <span class="comment">-- @treturn View the view at the top of the workspace layer.
-</span>        focus_view = <span class="keyword">function</span>(self, view, raise)<a id="459"></a>
+</span>        focus_view = <span class="keyword">function</span>(self, view, raise)
             <span class="keyword">if</span> raise == <span class="keyword">nil</span> <span class="keyword">then</span> raise = <span class="keyword">false</span> <span class="keyword">end</span>
             ffi.C.wf_Output_focus_view(self, view, raise)
         <span class="keyword">end</span>,
@@ -502,14 +740,14 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
 </span>        <span class="comment">-- @tparam Output self the output.
 </span>        <span class="comment">-- @tparam View view the view to make visible.
 </span>        <span class="comment">-- @treturn bool whether a workspace switch occurred.
-</span>        ensure_visible = <span class="keyword">function</span>(self, view)<a id="468"></a>
+</span>        ensure_visible = <span class="keyword">function</span>(self, view)
             <span class="keyword">return</span> ffi.C.wf_Output_ensure_visible(self, view)
         <span class="keyword">end</span>,
 
         <span class="comment">--- Get the output's workarea geometry.
 </span>        <span class="comment">-- @tparam Output self the output.
 </span>        <span class="comment">-- @treturn Geometry the the output's workarea.
-</span>        get_workarea = <span class="keyword">function</span>(self)<a id="475"></a>
+</span>        get_workarea = <span class="keyword">function</span>(self)
             <span class="keyword">return</span> ffi.C.wf_Output_get_workarea(self)
         <span class="keyword">end</span>,
 
@@ -528,7 +766,7 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
 </span>        <span class="comment">-- @tparam string signal
 </span>        <span class="comment">-- @tparam fn(output,data) handler
 </span>        <span class="comment">-- @treturn fn(output,data) handler
-</span>        hook = <span class="keyword">function</span>(self, signal, handler)<a id="494"></a>
+</span>        hook = <span class="keyword">function</span>(self, signal, handler)
             <span class="keyword">local</span> raw_handler = <span class="keyword">function</span>(_emitter, data)
                 data = Raw:convert_signal_data(<span class="string">'output'</span>, signal, data)
                 handler(self, data)
@@ -557,7 +795,7 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
 </span>        <span class="comment">-- @tparam Output self
 </span>        <span class="comment">-- @tparam string signal
 </span>        <span class="comment">-- @tparam fn(output,data) handler
-</span>        unhook = <span class="keyword">function</span>(self, signal, handler)<a id="523"></a>
+</span>        unhook = <span class="keyword">function</span>(self, signal, handler)
             <span class="keyword">local</span> raw_handler = ObjectData:get(self, handler)
             Raw:unsubscribe(self, signal, raw_handler)
             ObjectData:set(self, handler, <span class="keyword">nil</span>)
@@ -586,35 +824,35 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
         <span class="comment">--- Get the view's title.
 </span>        <span class="comment">-- @tparam View self the view.
 </span>        <span class="comment">-- @treturn string the view's title.
-</span>        get_title = <span class="keyword">function</span>(self)<a id="552"></a>
+</span>        get_title = <span class="keyword">function</span>(self)
             <span class="keyword">return</span> ffi.<span class="global">string</span>(ffi.C.wf_View_get_title(self))
         <span class="keyword">end</span>,
 
         <span class="comment">--- Get the view's app id.
 </span>        <span class="comment">-- @tparam View self the view.
 </span>        <span class="comment">-- @treturn string the view's app id.
-</span>        get_app_id = <span class="keyword">function</span>(self)<a id="559"></a>
+</span>        get_app_id = <span class="keyword">function</span>(self)
             <span class="keyword">return</span> ffi.<span class="global">string</span>(ffi.C.wf_View_get_app_id(self))
         <span class="keyword">end</span>,
 
         <span class="comment">--- Get the view's wm geometry.
 </span>        <span class="comment">-- @tparam View self the view.
 </span>        <span class="comment">-- @treturn Geometry the view's wm geometry.
-</span>        get_wm_geometry = <span class="keyword">function</span>(self)<a id="566"></a>
+</span>        get_wm_geometry = <span class="keyword">function</span>(self)
             <span class="keyword">return</span> ffi.C.wf_View_get_wm_geometry(self)
         <span class="keyword">end</span>,
 
         <span class="comment">--- Get the view's output geometry.
 </span>        <span class="comment">-- @tparam View self the view.
 </span>        <span class="comment">-- @treturn Geometry the view's output geometry.
-</span>        get_output_geometry = <span class="keyword">function</span>(self)<a id="573"></a>
+</span>        get_output_geometry = <span class="keyword">function</span>(self)
             <span class="keyword">return</span> ffi.C.wf_View_get_output_geometry(self)
         <span class="keyword">end</span>,
 
         <span class="comment">--- Get the view's bounding box.
 </span>        <span class="comment">-- @tparam View self the view.
 </span>        <span class="comment">-- @treturn Geometry the view's bounding box.
-</span>        get_bounding_box = <span class="keyword">function</span>(self)<a id="580"></a>
+</span>        get_bounding_box = <span class="keyword">function</span>(self)
             <span class="keyword">return</span> ffi.C.wf_View_get_bounding_box(self)
         <span class="keyword">end</span>,
 
@@ -702,7 +940,7 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
 </div> <!-- id="main" -->
 <div id="about">
 <i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
-<i style="float:right;">Last updated 2021-11-25 00:45:19 </i>
+<i style="float:right;">Last updated 2021-11-25 20:02:53 </i>
 </div> <!-- id="about" -->
 </div> <!-- id="container" -->
 </body>
