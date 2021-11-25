@@ -146,6 +146,10 @@ do
         return {view = ffi.C.wf_get_signaled_view(sig_data)}
     end
     Raw.signal_data_converters = {
+        core = {
+            ['view-created'] = view_signal,
+            ['view-system-bell'] = view_signal
+        },
         output = {
             ['view-mapped'] = view_signal,
             ['view-pre-unmapped'] = view_signal,
@@ -381,6 +385,240 @@ local ObjectData = {
         return self.data[object_id(object_ptr)][key]
     end
 }
+
+do
+    -- We don't need to actually call wayfire's get_core everytime since it should
+    -- never change.
+    local core = ffi.C.wf_get_core()
+    function Wf.get_core() return core end
+end
+
+---The Wayfire compositor instance.
+-- @usage local core = wf.get_core()
+-- -- move the cursor to (100, 100)
+-- core:warp_cursor({100, 100})
+-- @type Core
+ffi.metatype("wf_Core", {
+    __tostring = function(self)
+        return ffi.string(ffi.C.wf_Core_to_string(self))
+    end,
+    __index = {
+        --- Set the cursor to the given name from the cursor theme.
+        -- @tparam Core self the wayfire instance.
+        -- @tparam string name the cursor name.
+        set_cursor = function(self, name)
+            ffi.C.wf_Core_set_cursor(self, name)
+        end,
+
+        --- Request to hide the cursor.
+        --
+        -- Increments the hide-cursor reference count and hides the cursor if
+        -- it is not already hidden.
+        -- @tparam Core self the wayfire instance.
+        hide_cursor = function(self) ffi.C.wf_Core_hide_cursor(self) end,
+
+        --- Request to unhide the cursor.
+        --
+        -- Decrement the hide-cursor reference count. If it goes to 0, then the
+        -- cursor is actually unhidden.
+        -- @tparam Core self the wayfire instance.
+        unhide_cursor = function(self) ffi.C.wf_Core_unhide_cursor(self) end,
+
+        --- Move the cursor to the given point.
+        --
+        -- The point is interpreted as being in global coordinates.
+        -- @tparam Core self the wayfire instance.
+        -- @tparam Pointf position the cursor position.
+        warp_cursor = function(self, position)
+            ffi.C.wf_Core_warp_cursor(self, position)
+        end,
+
+        --- Get the cursor position in global coordinates.
+        --
+        -- @tparam Core self the wayfire instance.
+        -- @treturn Pointf the cursor position.
+        get_cursor_position = function(self)
+            return ffi.C.wf_Core_get_cursor_position(self)
+        end,
+
+        --- Get the view that currently has cursor focus.
+        --
+        -- @tparam Core self the wayfire instance.
+        -- @treturn View the view that currently has cursor focus.
+        get_cursor_focus_view = function(self)
+            return ffi.C.wf_Core_get_cursor_focus_view(self)
+        end,
+
+        --- Get the view that currently has touch focus.
+        --
+        -- @tparam Core self the wayfire instance.
+        -- @treturn View the view that currently has touch focus.
+        get_touch_focus_view = function(self)
+            return ffi.C.wf_Core_get_touch_focus_view(self)
+        end,
+
+        --- Get the view at the given point.
+        --
+        -- The point is interpreted as being in global coordinates.
+        -- Returns `nil` if there is no view at the point.
+        -- @tparam Core self the wayfire instance.
+        -- @tparam Pointf point the point.
+        -- @treturn ?View the view at the given point. Or nil if none.
+        get_view_at = function(self, point)
+            return ffi.C.wf_Core_get_view_at(self, point)
+        end,
+
+        --- Give a view keyboard focus.
+        --
+        -- @tparam Core self the wayfire instance.
+        -- @tparam View view the view to set as active.
+        set_active_view = function(self, view)
+            ffi.C.wf_Core_set_active_view(self, view)
+        end,
+
+        --- Focus the given view and it's output.
+        --
+        -- Also brings the view to the front of the stack.
+        -- @tparam Core self the wayfire instance.
+        -- @tparam View view the view to give focus to.
+        focus_view = function(self, view)
+            ffi.C.wf_Core_focus_view(self, view)
+        end,
+
+        --- Focus the given output.
+        --
+        -- @tparam Core self the wayfire instance.
+        -- @tparam Output output the output to give focus to.
+        focus_output = function(self, output)
+            ffi.C.wf_Core_focus_output(self, output)
+        end,
+
+        --- Get the currently focused output.
+        --
+        -- @tparam Core self the wayfire instance.
+        -- @treturn Output the currently focused output.
+        get_active_output = function(self)
+            return ffi.C.wf_Core_get_active_output(self)
+        end,
+
+        --- Move the given view to the output.
+        --
+        -- If `reconf` is `true`, then clamp the view's geometry to the
+        -- target output's geometry.
+        -- @tparam Core self the wayfire instance.
+        -- @tparam View view the view to move.
+        -- @tparam Output new_output the output to move the view to.
+        -- @tparam bool reconf whether to clamp the view's geometry to the
+        -- target output geometry.
+        move_view_to_output = function(self, view, new_output, reconf)
+            if reconf == nil then reconf = false end
+            ffi.C.wf_Core_move_view_to_output(self, view, new_output, reconf)
+        end,
+
+        --- Get the Wayland socket name of the current Wayland session.
+        --
+        -- @tparam Core self the wayfire instance.
+        -- @treturn string the Wayland socket name of the current Wayland
+        -- session.
+        get_wayland_display = function(self)
+            return ffi.string(ffi.C.wf_Core_get_wayland_display(self))
+        end,
+
+        --- Get the XWayland display name.
+        --
+        -- @tparam Core self the wayfire instance.
+        -- @treturn string the XWayland display name.
+        get_xwayland_display = function(self)
+            return ffi.string(ffi.C.wf_Core_get_xwayland_display(self))
+        end,
+
+        --- Run a command with the system POSIX shell.
+        --
+        -- Sets the correct `WAYLAND_DISPLAY` and `DISPLAY` variables as well as
+        -- others in order to make the process properly aware of the Wayfire
+        -- session.
+        --
+        -- @tparam Core self the wayfire instance.
+        -- @tparam string command the command to run.
+        -- @treturn int the PID of the process.
+        run = function(self, command) ffi.C.wf_Core_run(self, command) end,
+
+        --- Shutdown the whole Wayfire process.
+        --
+        -- @tparam Core self the wayfire instance.
+        shutdown = function(self) ffi.C.wf_Core_shutdown(self) end,
+
+        --- Hook into a signal on the Wayfire instance.
+        --
+        -- Start listening for and calling `handler` on this signal. 
+        -- The type of `data` depends on the signal being listened for.
+        -- See (TODO: signal definitions page).
+        --
+        -- @usage wf.get_core():hook('reload-config', function(core, data)
+        --     print('The wayfire config has been reloaded!')
+        -- end)
+        -- @usage
+        -- local wf = require('wf')
+        --
+        -- -- Whatever the wayfire config file says, override the option value
+        -- -- as soon as it's reloaded.
+        -- do
+        --     local my_settings = function()
+        --         wf.set {'core', background_color = '#344B5DFF'}
+        --     end
+        -- 
+        --     local core = wf.get_core()
+        --     core:hook('reload-config', function(core, data)
+        --         -- Config was reloaded
+        --         my_settings()
+        --     end)
+        -- 
+        --     my_settings()
+        -- end
+        -- @usage
+        -- assert(handler == wf.get_core():hook('startup-finished', handler))
+        --
+        -- @tparam Core self
+        -- @tparam string signal
+        -- @tparam fn(core,data) handler
+        -- @treturn fn(core,data) handler
+        hook = function(self, signal, handler)
+            local raw_handler = function(_emitter, data)
+                data = Raw:convert_signal_data('core', signal, data)
+                handler(self, data)
+            end
+
+            ObjectData:set(self, handler, raw_handler)
+            Raw:subscribe(self, signal, raw_handler)
+            return handler
+        end,
+
+        --- Unhook from a signal on the Wayfire instance.
+        --
+        -- Stop listening for and calling `handler` on this signal.
+        --
+        -- @usage 
+        -- local handler = wf.get_core():hook('view-created',
+        --                             function(core, data) end)
+        -- core:unhook('view-created', handler)
+        --
+        -- @usage local core = wf.get_core()
+        -- local handler = function() end
+        -- core:hook('view-created', handler)
+        -- core:hook('startup-finished', handler)
+        -- core:unhook('view-created', handler)
+        -- core:unhook('startup-finished', handler)
+        --
+        -- @tparam Core self
+        -- @tparam string signal
+        -- @tparam fn(core,data) handler
+        unhook = function(self, signal, handler)
+            local raw_handler = ObjectData:get(self, handler)
+            Raw:unsubscribe(self, signal, raw_handler)
+            ObjectData:set(self, handler, nil)
+        end
+    }
+})
 
 ---A wayfire output.
 -- @usage local view = -- some View

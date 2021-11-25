@@ -71,3 +71,27 @@ wf_View *wf_Output_get_active_view(wf_Output *output);
 void wf_Output_focus_view(wf_Output *output, wf_View *v, _Bool raise);
 _Bool wf_Output_ensure_visible(wf_Output *output, wf_View *view);
 wf_Geometry wf_Output_get_workarea(wf_Output *output);
+
+typedef struct wf_Core wf_Core;
+wf_Core *wf_get_core();
+
+const char *wf_Core_to_string(wf_Core *core);
+void wf_Core_set_cursor(wf_Core *core, const char *name);
+void wf_Core_unhide_cursor(wf_Core *core);
+void wf_Core_hide_cursor(wf_Core *core);
+void wf_Core_warp_cursor(wf_Core *core, wf_Pointf position);
+wf_Pointf wf_Core_get_cursor_position(wf_Core *core);
+wf_View *wf_Core_get_cursor_focus_view(wf_Core *core);
+wf_View *wf_Core_get_touch_focus_view(wf_Core *core);
+wf_View *wf_Core_get_view_at(wf_Core *core, wf_Pointf point);
+// TODO: port wf_Output_get_all_views(wf_Core *core)
+void wf_Core_set_active_view(wf_Core *core, wf_View *v);
+void wf_Core_focus_view(wf_Core *core, wf_View *win);
+void wf_Core_focus_output(wf_Core *core, wf_Output *o);
+wf_Output *wf_Core_get_active_output(wf_Core *core);
+void wf_Core_move_view_to_output(wf_Core *core, wf_View *v,
+                                 wf_Output *new_output, _Bool reconfigure);
+const char *wf_Core_get_wayland_display(wf_Core *core);
+const char *wf_Core_get_xwayland_display(wf_Core *core);
+int wf_Core_run(wf_Core *core, const char *command);
+void wf_Core_shutdown(wf_Core *core);

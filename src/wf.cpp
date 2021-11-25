@@ -54,6 +54,13 @@ inline constexpr wf::output_t *unwrap_output(wf_Output *output) {
     return (wf::output_t *)output;
 }
 
+inline constexpr wf_Core *wrap_core(wf::compositor_core_t *core) {
+    return (wf_Core *)core;
+}
+inline constexpr wf::compositor_core_t *unwrap_core(wf_Core *core) {
+    return (wf::compositor_core_t *)core;
+}
+
 struct LifetimeTracker : public wf::custom_data_t {
     struct CallbackPair {
         wf_LifetimeCallback callback;
@@ -165,6 +172,7 @@ wf_View *wf_get_signaled_view(void *sig_data) {
     return wrap_view(wf::get_signaled_view((wf::signal_data_t *)sig_data));
 }
 
+// TODO: no need for this to be a macro.
 #define WRAP_STRING_METHOD(CTYPE, METHOD, TYPE)                                \
     const char *CTYPE##_##METHOD(CTYPE *object) {                              \
         string_buf = ((TYPE *)object)->METHOD();                               \
@@ -228,4 +236,65 @@ bool wf_Output_ensure_visible(wf_Output *output, wf_View *view) {
 wf_Geometry wf_Output_get_workarea(wf_Output *output) {
     return wrap_geo(unwrap_output(output)->workspace->get_workarea());
 }
+
+wf_Core *wf_get_core() { return wrap_core(&wf::get_core()); }
+
+const char *wf_Core_to_string(wf_Core *core) {
+    string_buf = unwrap_core(core)->to_string();
+    return string_buf.c_str();
+}
+void wf_Core_set_cursor(wf_Core *core, const char *name) {
+    string_buf = name;
+    unwrap_core(core)->set_cursor(string_buf);
+}
+void wf_Core_unhide_cursor(wf_Core *core) {
+    unwrap_core(core)->unhide_cursor();
+}
+void wf_Core_hide_cursor(wf_Core *core) { unwrap_core(core)->hide_cursor(); }
+void wf_Core_warp_cursor(wf_Core *core, wf_Pointf position) {
+    unwrap_core(core)->warp_cursor(unwrap_pointf(position));
+}
+wf_Pointf wf_Core_get_cursor_position(wf_Core *core) {
+    return wrap_pointf(unwrap_core(core)->get_cursor_position());
+}
+wf_View *wf_Core_get_cursor_focus_view(wf_Core *core) {
+    return wrap_view(unwrap_core(core)->get_cursor_focus_view());
+}
+wf_View *wf_Core_get_touch_focus_view(wf_Core *core) {
+    return wrap_view(unwrap_core(core)->get_touch_focus_view());
+}
+wf_View *wf_Core_get_view_at(wf_Core *core, wf_Pointf point) {
+    return wrap_view(unwrap_core(core)->get_view_at(unwrap_pointf(point)));
+}
+void wf_Core_set_active_view(wf_Core *core, wf_View *v) {
+    unwrap_core(core)->set_active_view(unwrap_view(v));
+}
+void wf_Core_focus_view(wf_Core *core, wf_View *win) {
+    unwrap_core(core)->focus_view(unwrap_view(win));
+}
+void wf_Core_focus_output(wf_Core *core, wf_Output *o) {
+    unwrap_core(core)->focus_output(unwrap_output(o));
+}
+wf_Output *wf_Core_get_active_output(wf_Core *core) {
+    return wrap_output(unwrap_core(core)->get_active_output());
+}
+void wf_Core_move_view_to_output(wf_Core *core, wf_View *v,
+                                 wf_Output *new_output, bool reconfigure) {
+    unwrap_core(core)->move_view_to_output(
+        unwrap_view(v), unwrap_output(new_output), reconfigure);
+}
+const char *wf_Core_get_wayland_display(wf_Core *core) {
+    // the std::string wayland_display should have the lifetime of core. So
+    // returning the c_str buffer should be fine.
+    return unwrap_core(core)->wayland_display.c_str();
+}
+const char *wf_Core_get_xwayland_display(wf_Core *core) {
+    string_buf = unwrap_core(core)->get_xwayland_display();
+    return string_buf.c_str();
+}
+int wf_Core_run(wf_Core *core, const char *command) {
+    string_buf = command;
+    return unwrap_core(core)->run(string_buf);
+}
+void wf_Core_shutdown(wf_Core *core) { unwrap_core(core)->shutdown(); }
 }

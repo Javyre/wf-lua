@@ -50,3 +50,20 @@ wf.outputs:hook('view-unmapped', function(output, data)
     print_output(output)
     print_view(data.view)
 end)
+
+-- Whatever the wayfire config file says, override the option value as soon as
+-- it's reloaded.
+do
+    local my_settings = function()
+        wf.set {'core', background_color = '#344B5DFF'}
+    end
+
+    local core = wf.get_core()
+    core:hook('reload-config', function(core, data)
+        print('Config was reloaded!')
+
+        my_settings()
+    end)
+
+    my_settings()
+end
