@@ -251,6 +251,10 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
 </span>    <span class="comment">-- The type of <code>data</code> depends on the signal being listened for.
 </span>    <span class="comment">-- See (TODO: signal definitions page).
 </span>    <span class="comment">--
+</span>    <span class="comment">-- Note that this differs from calling <code>Output:hook()</code> on a specific
+</span>    <span class="comment">-- <code>output</code> as we are hooking into this signal for *all* outputs
+</span>    <span class="comment">-- simultaneously.
+</span>    <span class="comment">--
 </span>    <span class="comment">-- @usage
 </span>    <span class="comment">-- local wf = require 'wf'
 </span>    <span class="comment">--
@@ -261,7 +265,7 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
 </span>    <span class="comment">--
 </span>    <span class="comment">-- @tparam string signal
 </span>    <span class="comment">-- @tparam fn(output,data) handler
-</span>    <a id="228"></a><span class="comment">-- @treturn fn(output,data) handler
+</span>    <a id="232"></a><span class="comment">-- @treturn fn(output,data) handler
 </span>    <span class="keyword">function</span> outputs:hook(signal, handler)
         <span class="keyword">if</span> <span class="keyword">not</span> self._signal_handlers[signal] <span class="keyword">then</span>
             <span class="keyword">local</span> hook = util.Hook()
@@ -299,7 +303,7 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
 </span>    <span class="comment">-- wf.outputs:unhook('view-focused', handler)
 </span>    <span class="comment">--
 </span>    <span class="comment">-- @tparam string signal
-</span>    <a id="266"></a><span class="comment">-- @tparam fn(output,data) handler
+</span>    <a id="270"></a><span class="comment">-- @tparam fn(output,data) handler
 </span>    <span class="keyword">function</span> outputs:unhook(signal, handler)
         <span class="keyword">if</span> <span class="keyword">not</span> self._signal_handlers[signal] <span class="keyword">then</span>
             <span class="global">error</span>(<span class="string">'Signal "'</span> .. signal ..
@@ -339,7 +343,7 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
 </span><span class="comment">-- -- [section]
 </span><span class="comment">-- -- option = value
 </span><span class="comment">-- -- ...
-</span><a id="306"></a><span class="comment">-- @tparam {section,option=value,...} args
+</span><a id="310"></a><span class="comment">-- @tparam {section,option=value,...} args
 </span><span class="keyword">function</span> Wf.set(args)
     <span class="keyword">if</span> <span class="global">type</span>(args) ~= <span class="string">'table'</span> <span class="keyword">then</span>
         <span class="global">error</span>(<span class="string">[[The arguments to set should be passed in the form:
@@ -385,6 +389,36 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
     <span class="keyword">end</span>
 })
 
+<span class="comment">--- Lua-local data attached to wayfire objects.
+</span><span class="comment">-- @type ObjectData
+</span><span class="comment">-- @local
+</span><span class="keyword">local</span> ObjectData = {
+    data = {},
+
+    <span class="comment">--- Store some data.
+</span>    <span class="comment">--
+</span>    <span class="comment">-- Delete some stored data by setting it to <code>nil</code>.
+</span>    <span class="comment">-- @local
+</span>    set = <span class="keyword">function</span>(self, object_ptr, key, value)
+        <span class="keyword">local</span> object = object_id(object_ptr)
+        <span class="keyword">if</span> <span class="keyword">not</span> self.data[object] <span class="keyword">then</span>
+            <span class="keyword">if</span> value == <span class="keyword">nil</span> <span class="keyword">then</span> <span class="keyword">return</span> <span class="keyword">end</span>
+
+            self.data[object] = {[key] = value}
+            Raw:subscribe_lifetime(object_ptr,
+                                   <span class="keyword">function</span>() self.data[object] = <span class="keyword">nil</span> <span class="keyword">end</span>)
+        <span class="keyword">else</span>
+            self.data[object][key] = value
+        <span class="keyword">end</span>
+    <span class="keyword">end</span>,
+
+    <span class="comment">--- Retrieve some stored data.
+</span>    <span class="comment">-- @local
+</span>    get = <span class="keyword">function</span>(self, object_ptr, key)
+        <span class="keyword">return</span> self.data[object_id(object_ptr)][key]
+    <span class="keyword">end</span>
+}
+
 <span class="comment">---A wayfire output.
 </span><span class="comment">-- @usage local view = -- some View
 </span><span class="comment">-- local output = view:get_output()
@@ -399,7 +433,7 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
         <span class="comment">--- Get the screen size of this output.
 </span>        <span class="comment">-- @tparam Output self the output.
 </span>        <span class="comment">-- @treturn Dimensions the screen size.
-</span>        get_screen_size = <span class="keyword">function</span>(self)<a id="365"></a>
+</span>        get_screen_size = <span class="keyword">function</span>(self)<a id="399"></a>
             <span class="keyword">return</span> ffi.C.wf_Output_get_screen_size(self)
         <span class="keyword">end</span>,
 
@@ -407,7 +441,7 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
 </span>        <span class="comment">-- The <code>x,y</code> of the Geometry will be 0.
 </span>        <span class="comment">-- @tparam Output self the output.
 </span>        <span class="comment">-- @treturn Geometry the screen size.
-</span>        get_relative_geometry = <span class="keyword">function</span>(self)<a id="373"></a>
+</span>        get_relative_geometry = <span class="keyword">function</span>(self)<a id="407"></a>
             <span class="keyword">return</span> ffi.C.wf_Output_get_relative_geometry(self)
         <span class="keyword">end</span>,
 
@@ -416,7 +450,7 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
 </span>        <span class="comment">-- coordinates.
 </span>        <span class="comment">-- @tparam Output self the output.
 </span>        <span class="comment">-- @treturn Geometry the screen geometry.
-</span>        get_layout_geometry = <span class="keyword">function</span>(self)<a id="382"></a>
+</span>        get_layout_geometry = <span class="keyword">function</span>(self)<a id="416"></a>
             <span class="keyword">return</span> ffi.C.wf_Output_get_layout_geometry(self)
         <span class="keyword">end</span>,
 
@@ -427,7 +461,7 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
 </span>        <span class="comment">-- regardless of whether it is already on this output.
 </span>        <span class="comment">-- @tparam Output self the output.
 </span>        <span class="comment">-- @tparam bool center whether to unconditionally center the pointer.
-</span>        ensure_pointer = <span class="keyword">function</span>(self, center)<a id="393"></a>
+</span>        ensure_pointer = <span class="keyword">function</span>(self, center)<a id="427"></a>
             <span class="keyword">if</span> center == <span class="keyword">nil</span> <span class="keyword">then</span> center = <span class="keyword">false</span> <span class="keyword">end</span>
             ffi.C.wf_Output_ensure_pointer(self, center)
         <span class="keyword">end</span>,
@@ -435,21 +469,21 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
         <span class="comment">--- Get the cursor position relative to the output.
 </span>        <span class="comment">-- @tparam Output self the output.
 </span>        <span class="comment">-- @treturn Geometry the screen geometry.
-</span>        get_cursor_position = <span class="keyword">function</span>(self)<a id="401"></a>
+</span>        get_cursor_position = <span class="keyword">function</span>(self)<a id="435"></a>
             <span class="keyword">return</span> ffi.C.wf_Output_get_cursor_position(self)
         <span class="keyword">end</span>,
 
         <span class="comment">--- Get the view at the top of the workspace layer.
 </span>        <span class="comment">-- @tparam Output self the output.
 </span>        <span class="comment">-- @treturn View the view at the top of the workspace layer.
-</span>        get_top_view = <span class="keyword">function</span>(self)<a id="408"></a>
+</span>        get_top_view = <span class="keyword">function</span>(self)<a id="442"></a>
             <span class="keyword">return</span> ffi.C.wf_Output_get_top_view(self)
         <span class="keyword">end</span>,
 
         <span class="comment">--- Get the most recently focused view on this output.
 </span>        <span class="comment">-- @tparam Output self the output.
 </span>        <span class="comment">-- @treturn View the view at the top of the workspace layer.
-</span>        get_active_view = <span class="keyword">function</span>(self)<a id="415"></a>
+</span>        get_active_view = <span class="keyword">function</span>(self)<a id="449"></a>
             <span class="keyword">return</span> ffi.C.wf_Output_get_active_view(self)
         <span class="keyword">end</span>,
 
@@ -459,7 +493,7 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
 </span>        <span class="comment">-- @tparam View view the view to focus.
 </span>        <span class="comment">-- @tparam bool raise whether to raise the view.
 </span>        <span class="comment">-- @treturn View the view at the top of the workspace layer.
-</span>        focus_view = <span class="keyword">function</span>(self, view, raise)<a id="425"></a>
+</span>        focus_view = <span class="keyword">function</span>(self, view, raise)<a id="459"></a>
             <span class="keyword">if</span> raise == <span class="keyword">nil</span> <span class="keyword">then</span> raise = <span class="keyword">false</span> <span class="keyword">end</span>
             ffi.C.wf_Output_focus_view(self, view, raise)
         <span class="keyword">end</span>,
@@ -468,48 +502,68 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
 </span>        <span class="comment">-- @tparam Output self the output.
 </span>        <span class="comment">-- @tparam View view the view to make visible.
 </span>        <span class="comment">-- @treturn bool whether a workspace switch occurred.
-</span>        ensure_visible = <span class="keyword">function</span>(self, view)<a id="434"></a>
+</span>        ensure_visible = <span class="keyword">function</span>(self, view)<a id="468"></a>
             <span class="keyword">return</span> ffi.C.wf_Output_ensure_visible(self, view)
         <span class="keyword">end</span>,
 
         <span class="comment">--- Get the output's workarea geometry.
 </span>        <span class="comment">-- @tparam Output self the output.
 </span>        <span class="comment">-- @treturn Geometry the the output's workarea.
-</span>        get_workarea = <span class="keyword">function</span>(self)<a id="441"></a>
+</span>        get_workarea = <span class="keyword">function</span>(self)<a id="475"></a>
             <span class="keyword">return</span> ffi.C.wf_Output_get_workarea(self)
+        <span class="keyword">end</span>,
+
+        <span class="comment">--- Hook into a signal on this output.
+</span>        <span class="comment">--
+</span>        <span class="comment">-- Start listening for and calling <code>handler</code> on this signal.
+</span>        <span class="comment">-- The type of <code>data</code> depends on the signal being listened for.
+</span>        <span class="comment">-- See (TODO: signal definitions page).
+</span>        <span class="comment">--
+</span>        <span class="comment">-- @usage output:hook('view-mapped', function(output, data)
+</span>        <span class="comment">--     print('View ', data.view:get_title(), ' mapped!')
+</span>        <span class="comment">-- end)
+</span>        <span class="comment">-- @usage assert(handler == output:hook('view-focused', handler))
+</span>        <span class="comment">--
+</span>        <span class="comment">-- @tparam Output self
+</span>        <span class="comment">-- @tparam string signal
+</span>        <span class="comment">-- @tparam fn(output,data) handler
+</span>        <span class="comment">-- @treturn fn(output,data) handler
+</span>        hook = <span class="keyword">function</span>(self, signal, handler)<a id="494"></a>
+            <span class="keyword">local</span> raw_handler = <span class="keyword">function</span>(_emitter, data)
+                data = Raw:convert_signal_data(<span class="string">'output'</span>, signal, data)
+                handler(self, data)
+            <span class="keyword">end</span>
+
+            ObjectData:set(self, handler, raw_handler)
+            Raw:subscribe(self, signal, raw_handler)
+            <span class="keyword">return</span> handler
+        <span class="keyword">end</span>,
+
+        <span class="comment">--- Unhook from a signal on this output.
+</span>        <span class="comment">--
+</span>        <span class="comment">-- Stop listening for and calling <code>handler</code> on this signal.
+</span>        <span class="comment">--
+</span>        <span class="comment">-- @usage
+</span>        <span class="comment">-- local handler = output:hook('view-focused',
+</span>        <span class="comment">--                             function(output, data) end)
+</span>        <span class="comment">-- output:unhook('view-focused', handler)
+</span>        <span class="comment">--
+</span>        <span class="comment">-- @usage local handler = function() end
+</span>        <span class="comment">-- output:hook('view-mapped', handler)
+</span>        <span class="comment">-- output:hook('view-focused', handler)
+</span>        <span class="comment">-- output:unhook('view-mapped', handler)
+</span>        <span class="comment">-- output:unhook('view-focused', handler)
+</span>        <span class="comment">--
+</span>        <span class="comment">-- @tparam Output self
+</span>        <span class="comment">-- @tparam string signal
+</span>        <span class="comment">-- @tparam fn(output,data) handler
+</span>        unhook = <span class="keyword">function</span>(self, signal, handler)<a id="523"></a>
+            <span class="keyword">local</span> raw_handler = ObjectData:get(self, handler)
+            Raw:unsubscribe(self, signal, raw_handler)
+            ObjectData:set(self, handler, <span class="keyword">nil</span>)
         <span class="keyword">end</span>
     }
 })
-
-<span class="comment">--- Lua-local data attached to views.
-</span><span class="comment">-- @type ViewData
-</span><span class="comment">-- @local
-</span><span class="keyword">local</span> ViewData = {
-    data = {},
-
-    <span class="comment">--- Store some data.
-</span>    <span class="comment">--
-</span>    <span class="comment">-- Delete some stored data by setting it to <code>nil</code>.
-</span>    <span class="comment">-- @local
-</span>    set = <span class="keyword">function</span>(self, view_ptr, key, value)
-        <span class="keyword">local</span> view = object_id(view_ptr)
-        <span class="keyword">if</span> <span class="keyword">not</span> self.data[view] <span class="keyword">then</span>
-            <span class="keyword">if</span> value == <span class="keyword">nil</span> <span class="keyword">then</span> <span class="keyword">return</span> <span class="keyword">end</span>
-
-            self.data[view] = {[key] = value}
-            Raw:subscribe_lifetime(view_ptr,
-                                   <span class="keyword">function</span>() self.data[view] = <span class="keyword">nil</span> <span class="keyword">end</span>)
-        <span class="keyword">else</span>
-            self.data[view][key] = value
-        <span class="keyword">end</span>
-    <span class="keyword">end</span>,
-
-    <span class="comment">--- Retrieve some stored data.
-</span>    <span class="comment">-- @local
-</span>    get = <span class="keyword">function</span>(self, view_ptr, key)
-        <span class="keyword">return</span> self.data[object_id(view_ptr)][key]
-    <span class="keyword">end</span>
-}
 
 <span class="comment">---A wayfire view.
 </span><span class="comment">-- @usage
@@ -532,35 +586,35 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
         <span class="comment">--- Get the view's title.
 </span>        <span class="comment">-- @tparam View self the view.
 </span>        <span class="comment">-- @treturn string the view's title.
-</span>        get_title = <span class="keyword">function</span>(self)<a id="498"></a>
+</span>        get_title = <span class="keyword">function</span>(self)<a id="552"></a>
             <span class="keyword">return</span> ffi.<span class="global">string</span>(ffi.C.wf_View_get_title(self))
         <span class="keyword">end</span>,
 
         <span class="comment">--- Get the view's app id.
 </span>        <span class="comment">-- @tparam View self the view.
 </span>        <span class="comment">-- @treturn string the view's app id.
-</span>        get_app_id = <span class="keyword">function</span>(self)<a id="505"></a>
+</span>        get_app_id = <span class="keyword">function</span>(self)<a id="559"></a>
             <span class="keyword">return</span> ffi.<span class="global">string</span>(ffi.C.wf_View_get_app_id(self))
         <span class="keyword">end</span>,
 
         <span class="comment">--- Get the view's wm geometry.
 </span>        <span class="comment">-- @tparam View self the view.
 </span>        <span class="comment">-- @treturn Geometry the view's wm geometry.
-</span>        get_wm_geometry = <span class="keyword">function</span>(self)<a id="512"></a>
+</span>        get_wm_geometry = <span class="keyword">function</span>(self)<a id="566"></a>
             <span class="keyword">return</span> ffi.C.wf_View_get_wm_geometry(self)
         <span class="keyword">end</span>,
 
         <span class="comment">--- Get the view's output geometry.
 </span>        <span class="comment">-- @tparam View self the view.
 </span>        <span class="comment">-- @treturn Geometry the view's output geometry.
-</span>        get_output_geometry = <span class="keyword">function</span>(self)<a id="519"></a>
+</span>        get_output_geometry = <span class="keyword">function</span>(self)<a id="573"></a>
             <span class="keyword">return</span> ffi.C.wf_View_get_output_geometry(self)
         <span class="keyword">end</span>,
 
         <span class="comment">--- Get the view's bounding box.
 </span>        <span class="comment">-- @tparam View self the view.
 </span>        <span class="comment">-- @treturn Geometry the view's bounding box.
-</span>        get_bounding_box = <span class="keyword">function</span>(self)<a id="526"></a>
+</span>        get_bounding_box = <span class="keyword">function</span>(self)<a id="580"></a>
             <span class="keyword">return</span> ffi.C.wf_View_get_bounding_box(self)
         <span class="keyword">end</span>,
 
@@ -599,7 +653,7 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
                 handler(self, data)
             <span class="keyword">end</span>
 
-            ViewData:set(self, handler, raw_handler)
+            ObjectData:set(self, handler, raw_handler)
             Raw:subscribe(self, signal, raw_handler)
             <span class="keyword">return</span> handler
         <span class="keyword">end</span>,
@@ -607,6 +661,7 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
         <span class="comment">--- Unhook from a signal on this view.
 </span>        <span class="comment">--
 </span>        <span class="comment">-- Stop listening for and calling <code>handler</code> on this signal.
+</span>        <span class="comment">--
 </span>        <span class="comment">-- @usage local handler = view:hook('title-changed', function(view, data) end)
 </span>        <span class="comment">-- view:unhook('title-changed', handler)
 </span>        <span class="comment">--
@@ -620,9 +675,9 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
 </span>        <span class="comment">-- @tparam string signal
 </span>        <span class="comment">-- @tparam fn(view,data) handler
 </span>        unhook = <span class="keyword">function</span>(self, signal, handler)
-            <span class="keyword">local</span> raw_handler = ViewData:get(self, handler)
+            <span class="keyword">local</span> raw_handler = ObjectData:get(self, handler)
             Raw:unsubscribe(self, signal, raw_handler)
-            ViewData:set(self, handler, <span class="keyword">nil</span>)
+            ObjectData:set(self, handler, <span class="keyword">nil</span>)
         <span class="keyword">end</span>
     }
 })
@@ -647,7 +702,7 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
 </div> <!-- id="main" -->
 <div id="about">
 <i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
-<i style="float:right;">Last updated 2021-11-24 02:40:40 </i>
+<i style="float:right;">Last updated 2021-11-25 00:45:19 </i>
 </div> <!-- id="about" -->
 </div> <!-- id="container" -->
 </body>
