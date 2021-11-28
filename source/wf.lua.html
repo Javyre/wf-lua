@@ -109,18 +109,27 @@
     <span class="keyword">end</span>
 <span class="keyword">end</span>
 
-<span class="keyword">function</span> Raw:subscribe(emitter_ptr, signal, handler)
+<span class="keyword">function</span> Raw:subscribe(emitter_ptr, signal, handler, opts)
+    <span class="keyword">local</span> lifetime_cleanup = <span class="keyword">true</span>
+    <span class="keyword">if</span> opts ~= <span class="keyword">nil</span> <span class="keyword">and</span> <span class="global">type</span>(opts) == <span class="string">'table'</span> <span class="keyword">then</span>
+        <span class="keyword">if</span> opts.lifetime_cleanup == <span class="keyword">false</span> <span class="keyword">then</span> lifetime_cleanup = <span class="keyword">false</span> <span class="keyword">end</span>
+    <span class="keyword">end</span>
+
     <span class="keyword">local</span> emitter = object_id(emitter_ptr)
 
     Log.<span class="global">debug</span>(<span class="string">'subscribing to '</span> .. emitter .. <span class="string">' '</span> .. signal)
 
     <span class="keyword">if</span> <span class="keyword">not</span> self.signal_callbacks[emitter] <span class="keyword">then</span>
-        self.signal_callbacks[emitter] = {
+        <span class="keyword">local</span> lifetime_handler = <span class="keyword">false</span>
+        <span class="keyword">if</span> lifetime_cleanup <span class="keyword">then</span>
             <span class="comment">-- Clean up when the C++ emitter object dies.
 </span>            lifetime_handler = self:subscribe_lifetime(emitter_ptr, <span class="keyword">function</span>()
                 self.signal_callbacks[emitter] = <span class="keyword">nil</span>
                 ffi.C.wflua_signal_unsubscribe_all(emitter_ptr)
-            <span class="keyword">end</span>),
+            <span class="keyword">end</span>)
+        <span class="keyword">end</span>
+        self.signal_callbacks[emitter] = {
+            lifetime_handler = lifetime_cleanup,
             signals = {}
         }
     <span class="keyword">end</span>
@@ -150,9 +159,11 @@
 
         <span class="comment">-- No signals being listened for for this emitter
 </span>        <span class="keyword">if</span> <span class="keyword">not</span> <span class="global">next</span>(emitter_cbs) <span class="keyword">then</span>
-            <span class="comment">-- No longer need to listen for emitter destroyed
-</span>            self.unsubscribe_lifetime(emitter_ptr,
-                                      emitter_entry.lifetime_handler)
+            <span class="keyword">if</span> emitter_entry.lifetime_handler ~= <span class="keyword">false</span> <span class="keyword">then</span>
+                <span class="comment">-- No longer need to listen for emitter destroyed
+</span>                self.unsubscribe_lifetime(emitter_ptr,
+                                          emitter_entry.lifetime_handler)
+            <span class="keyword">end</span>
             self.signal_callbacks[emitter] = <span class="keyword">nil</span>
         <span class="keyword">end</span>
     <span class="keyword">end</span>
@@ -182,10 +193,22 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
     <span class="keyword">local</span> <span class="keyword">function</span> view_signal(sig_data)
         <span class="keyword">return</span> {view = ffi.C.wf_get_signaled_view(sig_data)}
     <span class="keyword">end</span>
+
+    <span class="keyword">local</span> <span class="keyword">function</span> output_signal(sig_data)
+        <span class="keyword">return</span> {output = ffi.C.wf_get_signaled_output(sig_data)}
+    <span class="keyword">end</span>
+
     Raw.signal_data_converters = {
         core = {
             [<span class="string">'view-created'</span>] = view_signal,
-            [<span class="string">'view-system-bell'</span>] = view_signal
+            [<span class="string">'view-system-bell'</span>] = view_signal,
+            [<span class="string">'output-gain-focus'</span>] = output_signal,
+            [<span class="string">'output-stack-order-changed'</span>] = output_signal
+        },
+        [<span class="string">'output-layout'</span>] = {
+            [<span class="string">'output-added'</span>] = output_signal,
+            [<span class="string">'pre-remove'</span>] = output_signal,
+            [<span class="string">'output-removed'</span>] = output_signal
         },
         output = {
             [<span class="string">'view-mapped'</span>] = view_signal,
@@ -199,7 +222,10 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
             [<span class="string">'view-layer-detached'</span>] = view_signal,
             [<span class="string">'view-disappeared'</span>] = view_signal,
             [<span class="string">'view-focused'</span>] = view_signal,
-            [<span class="string">'view-move-request'</span>] = view_signal
+            [<span class="string">'view-move-request'</span>] = view_signal,
+            [<span class="string">'gain-focus'</span>] = output_signal,
+            [<span class="string">'start-rendering'</span>] = output_signal,
+            [<span class="string">'stack-order-changed'</span>] = output_signal
         },
         view = {
             [<span class="string">'mapped'</span>] = view_signal,
@@ -209,7 +235,8 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
             [<span class="string">'title-changed'</span>] = view_signal,
             [<span class="string">'app-id-changed'</span>] = view_signal,
             [<span class="string">'decoration-state-updated'</span>] = view_signal,
-            [<span class="string">'ping-timeout'</span>] = view_signal
+            [<span class="string">'ping-timeout'</span>] = view_signal,
+            [<span class="string">'set-output'</span>] = output_signal
         }
     }
 <span class="keyword">end</span>
@@ -228,111 +255,6 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
 </span>
 <span class="keyword">local</span> Wf = {}
 
-<span class="comment">-- Outputs are represented as a single outputs table since there is only only
-</span><span class="comment">-- central wflua instance per wayfire session.
-</span><span class="keyword">do</span>
-    <span class="keyword">local</span> outputs = {_signal_handlers = {}, _raw_outputs = <span class="keyword">nil</span>}
-
-    <span class="comment">-- Populate output pointers
-</span>    <span class="keyword">do</span>
-        <span class="keyword">local</span> _raw_outputs = util.Set()
-
-        <span class="keyword">local</span> first = ffi.C.wf_get_next_output(output)
-        <span class="keyword">local</span> output = first
-        <span class="keyword">repeat</span>
-            _raw_outputs:add(output)
-
-            <span class="keyword">local</span> output = ffi.C.wf_get_next_output(output)
-        <span class="keyword">until</span> output == first
-
-        outputs._raw_outputs = _raw_outputs
-    <span class="keyword">end</span>
-
-    <span class="comment">--- Hook into a signal on all outputs.
-</span>    <span class="comment">--
-</span>    <span class="comment">-- Start listening for and calling <code>handler</code> on this signal.
-</span>    <span class="comment">-- <code>output</code> is the specific <a href="../index.html#Output">Output</a> that triggered the signal.
-</span>    <span class="comment">-- The type of <code>data</code> depends on the signal being listened for.
-</span>    <span class="comment">-- See (TODO: signal definitions page).
-</span>    <span class="comment">--
-</span>    <span class="comment">-- Note that this differs from calling <code>Output:hook()</code> on a specific
-</span>    <span class="comment">-- <code>output</code> as we are hooking into this signal for *all* outputs
-</span>    <span class="comment">-- simultaneously.
-</span>    <span class="comment">--
-</span>    <span class="comment">-- @usage
-</span>    <span class="comment">-- local wf = require 'wf'
-</span>    <span class="comment">--
-</span>    <span class="comment">-- wf.outputs:hook('view-focused', function(output, data)
-</span>    <span class="comment">--     print('View ', data.view, ' focused on output ', output)
-</span>    <span class="comment">-- end)
-</span>    <span class="comment">-- @usage assert(handler == wf.outputs:hook('view-focused', handler))
-</span>    <span class="comment">--
-</span>    <span class="comment">-- @tparam string signal
-</span>    <span class="comment">-- @tparam fn(output,data) handler
-</span>    <a id="236"></a><span class="comment">-- @treturn fn(output,data) handler
-</span>    <span class="keyword">function</span> outputs:hook(signal, handler)
-        <span class="keyword">if</span> <span class="keyword">not</span> self._signal_handlers[signal] <span class="keyword">then</span>
-            <span class="keyword">local</span> hook = util.Hook()
-            <span class="keyword">local</span> handler = <span class="keyword">function</span>(emitter, data)
-                data = Raw:convert_signal_data(<span class="string">'output'</span>, signal, data)
-                emitter = ffi.cast(<span class="string">'wf_Output *'</span>, emitter)
-
-                hook:call(emitter, data)
-            <span class="keyword">end</span>
-
-            self._signal_handlers[signal] = {hook = hook, handler = handler}
-
-            self._raw_outputs:for_each(<span class="keyword">function</span>(output)
-                Raw:subscribe(output, signal, handler)
-            <span class="keyword">end</span>)
-        <span class="keyword">end</span>
-
-        self._signal_handlers[signal].hook:hook(handler)
-
-        <span class="keyword">return</span> handler
-    <span class="keyword">end</span>
-
-    <span class="comment">--- Unhook from a signal on all outputs.
-</span>    <span class="comment">--
-</span>    <span class="comment">-- Stop listening for and calling <code>handler</code> on this signal.
-</span>    <span class="comment">-- @usage
-</span>    <span class="comment">-- local handler = wf.outputs:hook('view-focused',
-</span>    <span class="comment">--                                 function(output, data) end)
-</span>    <span class="comment">-- wf.outputs:unhook('view-focused', handler)
-</span>    <span class="comment">--
-</span>    <span class="comment">-- @usage local handler = function() end
-</span>    <span class="comment">-- wf.outputs:hook('view-mapped', handler)
-</span>    <span class="comment">-- wf.outputs:hook('view-focused', handler)
-</span>    <span class="comment">-- wf.outputs:unhook('view-mapped', handler)
-</span>    <span class="comment">-- wf.outputs:unhook('view-focused', handler)
-</span>    <span class="comment">--
-</span>    <span class="comment">-- @tparam string signal
-</span>    <a id="274"></a><span class="comment">-- @tparam fn(output,data) handler
-</span>    <span class="keyword">function</span> outputs:unhook(signal, handler)
-        <span class="keyword">if</span> <span class="keyword">not</span> self._signal_handlers[signal] <span class="keyword">then</span>
-            <span class="global">error</span>(<span class="string">'Signal "'</span> .. signal ..
-                      <span class="string">'" not in signal_handlers. Cannot unhook!'</span>)
-        <span class="keyword">end</span>
-
-        <span class="keyword">local</span> hook = self._signal_handlers[signal].hook
-
-        hook:unhook(handler)
-
-        <span class="keyword">if</span> hook:is_empty() <span class="keyword">then</span>
-            <span class="keyword">local</span> handler = self._signal_handlers[signal].handler
-            self._raw_outputs:for_each(<span class="keyword">function</span>(output)
-                Raw:unsubscribe(output, signal, handler)
-            <span class="keyword">end</span>)
-
-            self._signal_handlers[signal] = <span class="keyword">nil</span>
-        <span class="keyword">end</span>
-
-        <span class="keyword">return</span> handler
-    <span class="keyword">end</span>
-
-    Wf.outputs = outputs
-<span class="keyword">end</span>
-
 <span class="comment">--- Set option values in a given section.
 </span><span class="comment">--
 </span><span class="comment">-- The section and option names must already be registered in wayfire by it or
@@ -347,7 +269,7 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
 </span><span class="comment">-- -- [section]
 </span><span class="comment">-- -- option = value
 </span><span class="comment">-- -- ...
-</span><a id="314"></a><span class="comment">-- @tparam {section,option=value,...} args
+</span><a id="236"></a><span class="comment">-- @tparam {section,option=value,...} args
 </span><span class="keyword">function</span> Wf.set(args)
     <span class="keyword">if</span> <span class="global">type</span>(args) ~= <span class="string">'table'</span> <span class="keyword">then</span>
         <span class="global">error</span>(<span class="string">[[The arguments to set should be passed in the form:
@@ -403,14 +325,25 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
 </span>    <span class="comment">--
 </span>    <span class="comment">-- Delete some stored data by setting it to <code>nil</code>.
 </span>    <span class="comment">-- @local
-</span>    set = <span class="keyword">function</span>(self, object_ptr, key, value)
+</span>    set = <span class="keyword">function</span>(self, object_ptr, key, value, opts)
+        <span class="keyword">local</span> lifetime_cleanup = <span class="keyword">true</span>
+        <span class="keyword">if</span> opts ~= <span class="keyword">nil</span> <span class="keyword">and</span> <span class="global">type</span>(opts) == <span class="string">'table'</span> <span class="keyword">then</span>
+            <span class="keyword">if</span> opts.lifetime_cleanup == <span class="keyword">false</span> <span class="keyword">then</span>
+                lifetime_cleanup = <span class="keyword">false</span>
+            <span class="keyword">end</span>
+        <span class="keyword">end</span>
+
         <span class="keyword">local</span> object = object_id(object_ptr)
         <span class="keyword">if</span> <span class="keyword">not</span> self.data[object] <span class="keyword">then</span>
             <span class="keyword">if</span> value == <span class="keyword">nil</span> <span class="keyword">then</span> <span class="keyword">return</span> <span class="keyword">end</span>
 
             self.data[object] = {[key] = value}
-            Raw:subscribe_lifetime(object_ptr,
-                                   <span class="keyword">function</span>() self.data[object] = <span class="keyword">nil</span> <span class="keyword">end</span>)
+            <span class="keyword">if</span> lifetime_cleanup <span class="keyword">then</span>
+                Raw:subscribe_lifetime(object_ptr,
+                                       <span class="keyword">function</span>()
+                    self.data[object] = <span class="keyword">nil</span>
+                <span class="keyword">end</span>)
+            <span class="keyword">end</span>
         <span class="keyword">else</span>
             self.data[object][key] = value
         <span class="keyword">end</span>
@@ -443,7 +376,7 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
         <span class="comment">--- Set the cursor to the given name from the cursor theme.
 </span>        <span class="comment">-- @tparam Core self the wayfire instance.
 </span>        <span class="comment">-- @tparam string name the cursor name.
-</span>        set_cursor = <span class="keyword">function</span>(self, name)<a id="409"></a>
+</span>        set_cursor = <span class="keyword">function</span>(self, name)<a id="342"></a>
             ffi.C.wf_Core_set_cursor(self, name)
         <span class="keyword">end</span>,
 
@@ -585,6 +518,15 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
 </span>        <span class="comment">-- @tparam Core self the wayfire instance.
 </span>        shutdown = <span class="keyword">function</span>(self) ffi.C.wf_Core_shutdown(self) <span class="keyword">end</span>,
 
+        <span class="comment">--- Get the OutputLayout object representing the layout of the outputs.
+</span>        <span class="comment">--
+</span>        <span class="comment">-- @tparam Core self the wayfire instance.
+</span>        <span class="comment">-- @treturn OutputLayout the OutputLayout object representing the layout
+</span>        <span class="comment">-- of the outputs.
+</span>        get_output_layout = <span class="keyword">function</span>(self)
+            <span class="keyword">return</span> ffi.C.wf_Core_get_output_layout(self)
+        <span class="keyword">end</span>,
+
         <span class="comment">--- Hook into a signal on the Wayfire instance.
 </span>        <span class="comment">--
 </span>        <span class="comment">-- Start listening for and calling <code>handler</code> on this signal.
@@ -649,6 +591,146 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
 </span>        <span class="comment">-- @tparam Core self
 </span>        <span class="comment">-- @tparam string signal
 </span>        <span class="comment">-- @tparam fn(core,data) handler
+</span>        unhook = <span class="keyword">function</span>(self, signal, handler)
+            <span class="keyword">local</span> raw_handler = ObjectData:get(self, handler)
+            Raw:unsubscribe(self, signal, raw_handler)
+            ObjectData:set(self, handler, <span class="keyword">nil</span>)
+        <span class="keyword">end</span>
+    }
+})
+
+<span class="comment">---The current layout of the outputs.
+</span><span class="comment">--
+</span><span class="comment">-- Mainly useful for hooking into output layout signals like <code>&quot;output-added&quot;</code>.
+</span><span class="comment">--
+</span><span class="comment">-- @usage local output_layout = wf.get_core():get_output_layout()
+</span><span class="comment">-- output_layout:hook("output-added", function(output_layout, data)
+</span><span class="comment">--     print("new output!", data.output)
+</span><span class="comment">-- end)
+</span><span class="comment">-- @type Output
+</span>ffi.metatype(<span class="string">"wf_OutputLayout"</span>, {
+    __tostring = <span class="keyword">function</span>(self)
+        <span class="keyword">return</span> <span class="string">"OutputLayout{ "</span> .. self:get_num_outputs() .. <span class="string">" output(s) }"</span>
+    <span class="keyword">end</span>,
+    __index = {
+        <span class="comment">--- Get the output at the given coordinates.
+</span>        <span class="comment">--
+</span>        <span class="comment">-- Returns nil if no output is on the specified coordinate.
+</span>        <span class="comment">--
+</span>        <span class="comment">-- @tparam OutputLayout self the output layout object.
+</span>        <span class="comment">-- @tparam number x the X coordinate.
+</span>        <span class="comment">-- @tparam number y the Y coordinate.
+</span>        <span class="comment">-- @treturn Output the output at the given coordinates or nil.
+</span>        get_output_at = <span class="keyword">function</span>(self, x, y)
+            ffi.C.wf_OutputLayout_get_output_at(self, x, y)
+        <span class="keyword">end</span>,
+
+        <span class="comment">--- Get the output at the given coordinates and the closest point on it.
+</span>        <span class="comment">--
+</span>        <span class="comment">-- Returns <code>output, closest</code> meaning the output found at the given
+</span>        <span class="comment">-- origin point and the closest point to the given origin on the output.
+</span>        <span class="comment">--
+</span>        <span class="comment">-- @tparam OutputLayout self the output layout object.
+</span>        <span class="comment">-- @tparam Pointf origin The origin point to query for.
+</span>        <span class="comment">-- @treturn Output the output at the given coordinates.
+</span>        <span class="comment">-- @treturn Pointf the closest point to the origin inside the found
+</span>        <span class="comment">-- output.
+</span>        get_output_coords_at = <span class="keyword">function</span>(self, origin)
+            <span class="keyword">local</span> closest = ffi.new(<span class="string">'wf_Pointf'</span>)
+            <span class="keyword">local</span> output = ffi.C.wf_OutputLayout_get_output_coords_at(self,
+                                                                      origin,
+                                                                      closest)
+            <span class="keyword">return</span> output, closest
+        <span class="keyword">end</span>,
+
+        <span class="comment">--- Get the number of current outputs.
+</span>        <span class="comment">--
+</span>        <span class="comment">-- @tparam OutputLayout self the output layout object.
+</span>        <span class="comment">-- @treturn number the number of outputs.
+</span>        get_num_outputs = <span class="keyword">function</span>(self)
+            <span class="keyword">return</span> ffi.C.wf_OutputLayout_get_num_outputs(self)
+        <span class="keyword">end</span>,
+
+        <span class="comment">--- Iterate through the current outputs.
+</span>        <span class="comment">--
+</span>        <span class="comment">-- Start by calling this function with <code>nil</code> as parameter and then
+</span>        <span class="comment">-- successively call it until the returned value is the same as the
+</span>        <span class="comment">-- first call.
+</span>        <span class="comment">--
+</span>        <span class="comment">-- @usage local first = output_layout:get_next_output(nil)
+</span>        <span class="comment">-- local output = first
+</span>        <span class="comment">-- repeat
+</span>        <span class="comment">--     print("Current output:", output)
+</span>        <span class="comment">--     local output = output_layout:get_next_output(output)
+</span>        <span class="comment">-- until output == first
+</span>        <span class="comment">-- @tparam OutputLayout self the output layout object.
+</span>        <span class="comment">-- @tparam Output prev the output to step forwards from.
+</span>        <span class="comment">-- @treturn Output the next output.
+</span>        get_next_output = <span class="keyword">function</span>(self, prev)
+            <span class="keyword">return</span> ffi.C.wf_OutputLayout_get_next_output(self, prev)
+        <span class="keyword">end</span>,
+
+        <span class="comment">--- Get an output by name.
+</span>        <span class="comment">--
+</span>        <span class="comment">-- @tparam OutputLayout self the output layout object.
+</span>        <span class="comment">-- @tparam string name the name of the output.
+</span>        <span class="comment">-- @treturn Output the next output.
+</span>        find_output = <span class="keyword">function</span>(self, name)
+            <span class="keyword">return</span> ffi.C.wf_OutputLayout_find_output(self, name)
+        <span class="keyword">end</span>,
+
+        <span class="comment">-- COMBAK: write the hook/unhook methods for this. We need a special
+</span>        <span class="comment">-- case in the Raw stuff to opt out of lifetime tracking since
+</span>        <span class="comment">-- OutputLayout is not an object but just a signal provider.
+</span>
+        <span class="comment">--- Hook into a signal on the output layout.
+</span>        <span class="comment">--
+</span>        <span class="comment">-- Start listening for and calling <code>handler</code> on this signal.
+</span>        <span class="comment">-- The type of <code>data</code> depends on the signal being listened for.
+</span>        <span class="comment">-- See (TODO: signal definitions page).
+</span>        <span class="comment">--
+</span>        <span class="comment">-- @usage local layout = wf.get_core():get_output_layout()
+</span>        <span class="comment">-- layout:hook('output-added', function(layout, data)
+</span>        <span class="comment">--     print('An output has been added:', data.output)
+</span>        <span class="comment">-- end)
+</span>        <span class="comment">-- @usage
+</span>        <span class="comment">-- assert(handler == layout:hook('output-removed', handler))
+</span>        <span class="comment">--
+</span>        <span class="comment">-- @tparam OutputLayout self
+</span>        <span class="comment">-- @tparam string signal
+</span>        <span class="comment">-- @tparam fn(layout,data) handler
+</span>        <span class="comment">-- @treturn fn(layout,data) handler
+</span>        hook = <span class="keyword">function</span>(self, signal, handler)
+            <span class="keyword">local</span> raw_handler = <span class="keyword">function</span>(_emitter, data)
+                data = Raw:convert_signal_data(<span class="string">'output-layout'</span>, signal, data)
+                handler(self, data)
+            <span class="keyword">end</span>
+
+            ObjectData:set(self, handler, raw_handler,
+                           {lifetime_cleanup = <span class="keyword">false</span>})
+            Raw:subscribe(self, signal, raw_handler, {lifetime_cleanup = <span class="keyword">false</span>})
+            <span class="keyword">return</span> handler
+        <span class="keyword">end</span>,
+
+        <span class="comment">--- Unhook from a signal on the output layout.
+</span>        <span class="comment">--
+</span>        <span class="comment">-- Stop listening for and calling <code>handler</code> on this signal.
+</span>        <span class="comment">--
+</span>        <span class="comment">-- @usage
+</span>        <span class="comment">-- local handler = wf.get_core():hook('output-added',
+</span>        <span class="comment">--                             function(layout, data) end)
+</span>        <span class="comment">-- core:unhook('output-added', handler)
+</span>        <span class="comment">--
+</span>        <span class="comment">-- @usage local layout = wf.get_core():get_output_layout()
+</span>        <span class="comment">-- local handler = function() end
+</span>        <span class="comment">-- layout:hook('output-added', handler)
+</span>        <span class="comment">-- layout:hook('output-removed', handler)
+</span>        <span class="comment">-- layout:unhook('output-added', handler)
+</span>        <span class="comment">-- layout:unhook('output-removed', handler)
+</span>        <span class="comment">--
+</span>        <span class="comment">-- @tparam OutputLayout self
+</span>        <span class="comment">-- @tparam string signal
+</span>        <span class="comment">-- @tparam fn(layout,data) handler
 </span>        unhook = <span class="keyword">function</span>(self, signal, handler)
             <span class="keyword">local</span> raw_handler = ObjectData:get(self, handler)
             Raw:unsubscribe(self, signal, raw_handler)
@@ -920,6 +1002,104 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
     }
 })
 
+<span class="comment">-- Outputs represented as a single outputs table since there is only only
+</span><span class="comment">-- central wflua instance per wayfire session.
+</span><span class="keyword">do</span>
+    <span class="keyword">local</span> outputs = {_hooked_signals = {}}
+    <span class="keyword">local</span> output_layout = Wf.get_core():get_output_layout()
+
+    <span class="comment">-- Populate output pointers
+</span>    <span class="keyword">do</span>
+        <span class="keyword">local</span> _raw_outputs = {}
+
+        <span class="keyword">local</span> first = output_layout:get_next_output(<span class="keyword">nil</span>)
+        <span class="keyword">local</span> output = first
+        <span class="keyword">repeat</span>
+            _raw_outputs[object_id(output)] = output
+
+            <span class="keyword">local</span> output = output_layout:get_next_output(output)
+        <span class="keyword">until</span> output == first
+
+        outputs._raw_outputs = _raw_outputs
+    <span class="keyword">end</span>
+
+    <span class="comment">-- Update the raw_outputs list appropriately
+</span>    <span class="keyword">do</span>
+        output_layout:hook(<span class="string">'output-added'</span>, <span class="keyword">function</span>(layout, data)
+            <span class="keyword">if</span> outputs._raw_outputs[object_id(data.output)] == <span class="keyword">nil</span> <span class="keyword">then</span>
+                outputs._raw_outputs[object_id(data.output)] = data.output
+                <span class="keyword">for</span> _, sig <span class="keyword">in</span> <span class="global">pairs</span>(outputs._hooked_signals) <span class="keyword">do</span>
+                    data.output:hook(sig.signal, sig.handler)
+                <span class="keyword">end</span>
+            <span class="keyword">end</span>
+        <span class="keyword">end</span>)
+        output_layout:hook(<span class="string">'output-removed'</span>, <span class="keyword">function</span>(layout, data)
+            outputs._raw_outputs[object_id(data.output)] = <span class="keyword">nil</span>
+            <span class="comment">-- No need to unhook signals as this is taken care of by the
+</span>            <span class="comment">-- lifetime cleanup of the output object.
+</span>        <span class="keyword">end</span>)
+    <span class="keyword">end</span>
+
+    <span class="comment">--- Hook into a signal on all outputs.
+</span>    <span class="comment">--
+</span>    <span class="comment">-- Start listening for and calling <code>handler</code> on this signal.
+</span>    <span class="comment">-- <code>output</code> is the specific <a href="../index.html#Output">Output</a> that triggered the signal.
+</span>    <span class="comment">-- The type of <code>data</code> depends on the signal being listened for.
+</span>    <span class="comment">-- See (TODO: signal definitions page).
+</span>    <span class="comment">--
+</span>    <span class="comment">-- Note that this differs from calling <code>Output:hook()</code> on a specific
+</span>    <span class="comment">-- <code>output</code> as we are hooking into this signal for *all* outputs
+</span>    <span class="comment">-- simultaneously.
+</span>    <span class="comment">--
+</span>    <span class="comment">-- @usage
+</span>    <span class="comment">-- local wf = require 'wf'
+</span>    <span class="comment">--
+</span>    <span class="comment">-- wf.outputs:hook('view-focused', function(output, data)
+</span>    <span class="comment">--     print('View ', data.view, ' focused on output ', output)
+</span>    <span class="comment">-- end)
+</span>    <span class="comment">-- @usage assert(handler == wf.outputs:hook('view-focused', handler))
+</span>    <span class="comment">--
+</span>    <span class="comment">-- @tparam string signal
+</span>    <span class="comment">-- @tparam fn(output,data) handler
+</span>    <span class="comment">-- @treturn fn(output,data) handler
+</span>    <span class="keyword">function</span> outputs:hook(signal, handler)
+        self._hooked_signals[signal .. <span class="global">tostring</span>(handler)] = {
+            signal = signal,
+            handler = handler
+        }
+        <span class="keyword">for</span> _, output <span class="keyword">in</span> <span class="global">pairs</span>(self._raw_outputs) <span class="keyword">do</span>
+            output:hook(signal, handler)
+        <span class="keyword">end</span>
+        <span class="keyword">return</span> handler
+    <span class="keyword">end</span>
+
+    <span class="comment">--- Unhook from a signal on all outputs.
+</span>    <span class="comment">--
+</span>    <span class="comment">-- Stop listening for and calling <code>handler</code> on this signal.
+</span>    <span class="comment">-- @usage
+</span>    <span class="comment">-- local handler = wf.outputs:hook('view-focused',
+</span>    <span class="comment">--                                 function(output, data) end)
+</span>    <span class="comment">-- wf.outputs:unhook('view-focused', handler)
+</span>    <span class="comment">--
+</span>    <span class="comment">-- @usage local handler = function() end
+</span>    <span class="comment">-- wf.outputs:hook('view-mapped', handler)
+</span>    <span class="comment">-- wf.outputs:hook('view-focused', handler)
+</span>    <span class="comment">-- wf.outputs:unhook('view-mapped', handler)
+</span>    <span class="comment">-- wf.outputs:unhook('view-focused', handler)
+</span>    <span class="comment">--
+</span>    <span class="comment">-- @tparam string signal
+</span>    <span class="comment">-- @tparam fn(output,data) handler
+</span>    <span class="keyword">function</span> outputs:unhook(signal, handler)
+        self._hooked_signals[signal .. <span class="global">tostring</span>(handler)] = <span class="keyword">nil</span>
+        <span class="keyword">for</span> _, output <span class="keyword">in</span> <span class="global">pairs</span>(self._raw_outputs) <span class="keyword">do</span>
+            output:unhook(signal, handler)
+        <span class="keyword">end</span>
+        <span class="keyword">return</span> handler
+    <span class="keyword">end</span>
+
+    Wf.outputs = outputs
+<span class="keyword">end</span>
+
 <span class="comment">--
 </span><span class="comment">--
 </span><span class="comment">-- TEST --
@@ -940,7 +1120,7 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
 </div> <!-- id="main" -->
 <div id="about">
 <i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
-<i style="float:right;">Last updated 2021-11-25 20:02:53 </i>
+<i style="float:right;">Last updated 2021-11-28 19:36:09 </i>
 </div> <!-- id="about" -->
 </div> <!-- id="container" -->
 </body>
