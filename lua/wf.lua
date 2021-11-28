@@ -1068,18 +1068,4 @@ do
     Wf.outputs = outputs
 end
 
---
---
--- TEST --
---
---
-
-local function test(wf)
-    wf.set {'swayfire-deco', border_radius = 123, border_width = 23}
-
-    wf.outputs.hook('view-mapped', function(data)
-        print(string.format('view %s mapped', data.view.title))
-    end)
-end
-
 return Wf
