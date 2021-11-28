@@ -72,18 +72,27 @@ function Raw:unsubscribe_lifetime(emitter_ptr, handler)
     end
 end
 
-function Raw:subscribe(emitter_ptr, signal, handler)
+function Raw:subscribe(emitter_ptr, signal, handler, opts)
+    local lifetime_cleanup = true
+    if opts ~= nil and type(opts) == 'table' then
+        if opts.lifetime_cleanup == false then lifetime_cleanup = false end
+    end
+
     local emitter = object_id(emitter_ptr)
 
     Log.debug('subscribing to ' .. emitter .. ' ' .. signal)
 
     if not self.signal_callbacks[emitter] then
-        self.signal_callbacks[emitter] = {
+        local lifetime_handler = false
+        if lifetime_cleanup then
             -- Clean up when the C++ emitter object dies.
             lifetime_handler = self:subscribe_lifetime(emitter_ptr, function()
                 self.signal_callbacks[emitter] = nil
                 ffi.C.wflua_signal_unsubscribe_all(emitter_ptr)
-            end),
+            end)
+        end
+        self.signal_callbacks[emitter] = {
+            lifetime_handler = lifetime_cleanup,
             signals = {}
         }
     end
@@ -113,9 +122,11 @@ function Raw:unsubscribe(emitter_ptr, signal, handler)
 
         -- No signals being listened for for this emitter
         if not next(emitter_cbs) then
-            -- No longer need to listen for emitter destroyed
-            self.unsubscribe_lifetime(emitter_ptr,
-                                      emitter_entry.lifetime_handler)
+            if emitter_entry.lifetime_handler ~= false then
+                -- No longer need to listen for emitter destroyed
+                self.unsubscribe_lifetime(emitter_ptr,
+                                          emitter_entry.lifetime_handler)
+            end
             self.signal_callbacks[emitter] = nil
         end
     end
@@ -145,10 +156,22 @@ do
     local function view_signal(sig_data)
         return {view = ffi.C.wf_get_signaled_view(sig_data)}
     end
+
+    local function output_signal(sig_data)
+        return {output = ffi.C.wf_get_signaled_output(sig_data)}
+    end
+
     Raw.signal_data_converters = {
         core = {
             ['view-created'] = view_signal,
-            ['view-system-bell'] = view_signal
+            ['view-system-bell'] = view_signal,
+            ['output-gain-focus'] = output_signal,
+            ['output-stack-order-changed'] = output_signal
+        },
+        ['output-layout'] = {
+            ['output-added'] = output_signal,
+            ['pre-remove'] = output_signal,
+            ['output-removed'] = output_signal
         },
         output = {
             ['view-mapped'] = view_signal,
@@ -162,7 +185,10 @@ do
             ['view-layer-detached'] = view_signal,
             ['view-disappeared'] = view_signal,
             ['view-focused'] = view_signal,
-            ['view-move-request'] = view_signal
+            ['view-move-request'] = view_signal,
+            ['gain-focus'] = output_signal,
+            ['start-rendering'] = output_signal,
+            ['stack-order-changed'] = output_signal
         },
         view = {
             ['mapped'] = view_signal,
@@ -172,7 +198,8 @@ do
             ['title-changed'] = view_signal,
             ['app-id-changed'] = view_signal,
             ['decoration-state-updated'] = view_signal,
-            ['ping-timeout'] = view_signal
+            ['ping-timeout'] = view_signal,
+            ['set-output'] = output_signal
         }
     }
 end
@@ -190,111 +217,6 @@ end
 -- Public API
 
 local Wf = {}
-
--- Outputs are represented as a single outputs table since there is only only
--- central wflua instance per wayfire session.
-do
-    local outputs = {_signal_handlers = {}, _raw_outputs = nil}
-
-    -- Populate output pointers
-    do
-        local _raw_outputs = util.Set()
-
-        local first = ffi.C.wf_get_next_output(output)
-        local output = first
-        repeat
-            _raw_outputs:add(output)
-
-            local output = ffi.C.wf_get_next_output(output)
-        until output == first
-
-        outputs._raw_outputs = _raw_outputs
-    end
-
-    --- Hook into a signal on all outputs.
-    --
-    -- Start listening for and calling `handler` on this signal. 
-    -- `output` is the specific `Output` that triggered the signal.
-    -- The type of `data` depends on the signal being listened for.
-    -- See (TODO: signal definitions page).
-    --
-    -- Note that this differs from calling `Output:hook()` on a specific
-    -- `output` as we are hooking into this signal for *all* outputs
-    -- simultaneously.
-    --
-    -- @usage 
-    -- local wf = require 'wf'
-    --
-    -- wf.outputs:hook('view-focused', function(output, data)
-    --     print('View ', data.view, ' focused on output ', output)
-    -- end)
-    -- @usage assert(handler == wf.outputs:hook('view-focused', handler))
-    --
-    -- @tparam string signal
-    -- @tparam fn(output,data) handler
-    -- @treturn fn(output,data) handler
-    function outputs:hook(signal, handler)
-        if not self._signal_handlers[signal] then
-            local hook = util.Hook()
-            local handler = function(emitter, data)
-                data = Raw:convert_signal_data('output', signal, data)
-                emitter = ffi.cast('wf_Output *', emitter)
-
-                hook:call(emitter, data)
-            end
-
-            self._signal_handlers[signal] = {hook = hook, handler = handler}
-
-            self._raw_outputs:for_each(function(output)
-                Raw:subscribe(output, signal, handler)
-            end)
-        end
-
-        self._signal_handlers[signal].hook:hook(handler)
-
-        return handler
-    end
-
-    --- Unhook from a signal on all outputs.
-    --
-    -- Stop listening for and calling `handler` on this signal.
-    -- @usage
-    -- local handler = wf.outputs:hook('view-focused',
-    --                                 function(output, data) end)
-    -- wf.outputs:unhook('view-focused', handler)
-    --
-    -- @usage local handler = function() end
-    -- wf.outputs:hook('view-mapped', handler)
-    -- wf.outputs:hook('view-focused', handler)
-    -- wf.outputs:unhook('view-mapped', handler)
-    -- wf.outputs:unhook('view-focused', handler)
-    --
-    -- @tparam string signal
-    -- @tparam fn(output,data) handler
-    function outputs:unhook(signal, handler)
-        if not self._signal_handlers[signal] then
-            error('Signal "' .. signal ..
-                      '" not in signal_handlers. Cannot unhook!')
-        end
-
-        local hook = self._signal_handlers[signal].hook
-
-        hook:unhook(handler)
-
-        if hook:is_empty() then
-            local handler = self._signal_handlers[signal].handler
-            self._raw_outputs:for_each(function(output)
-                Raw:unsubscribe(output, signal, handler)
-            end)
-
-            self._signal_handlers[signal] = nil
-        end
-
-        return handler
-    end
-
-    Wf.outputs = outputs
-end
 
 --- Set option values in a given section.
 --
@@ -366,14 +288,25 @@ local ObjectData = {
     --
     -- Delete some stored data by setting it to `nil`.
     -- @local
-    set = function(self, object_ptr, key, value)
+    set = function(self, object_ptr, key, value, opts)
+        local lifetime_cleanup = true
+        if opts ~= nil and type(opts) == 'table' then
+            if opts.lifetime_cleanup == false then
+                lifetime_cleanup = false
+            end
+        end
+
         local object = object_id(object_ptr)
         if not self.data[object] then
             if value == nil then return end
 
             self.data[object] = {[key] = value}
-            Raw:subscribe_lifetime(object_ptr,
-                                   function() self.data[object] = nil end)
+            if lifetime_cleanup then
+                Raw:subscribe_lifetime(object_ptr,
+                                       function()
+                    self.data[object] = nil
+                end)
+            end
         else
             self.data[object][key] = value
         end
@@ -548,6 +481,15 @@ ffi.metatype("wf_Core", {
         -- @tparam Core self the wayfire instance.
         shutdown = function(self) ffi.C.wf_Core_shutdown(self) end,
 
+        --- Get the OutputLayout object representing the layout of the outputs.
+        --
+        -- @tparam Core self the wayfire instance.
+        -- @treturn OutputLayout the OutputLayout object representing the layout
+        -- of the outputs.
+        get_output_layout = function(self)
+            return ffi.C.wf_Core_get_output_layout(self)
+        end,
+
         --- Hook into a signal on the Wayfire instance.
         --
         -- Start listening for and calling `handler` on this signal. 
@@ -612,6 +554,146 @@ ffi.metatype("wf_Core", {
         -- @tparam Core self
         -- @tparam string signal
         -- @tparam fn(core,data) handler
+        unhook = function(self, signal, handler)
+            local raw_handler = ObjectData:get(self, handler)
+            Raw:unsubscribe(self, signal, raw_handler)
+            ObjectData:set(self, handler, nil)
+        end
+    }
+})
+
+---The current layout of the outputs.
+--
+-- Mainly useful for hooking into output layout signals like `"output-added"`.
+--
+-- @usage local output_layout = wf.get_core():get_output_layout()
+-- output_layout:hook("output-added", function(output_layout, data)
+--     print("new output!", data.output)
+-- end)
+-- @type Output
+ffi.metatype("wf_OutputLayout", {
+    __tostring = function(self)
+        return "OutputLayout{ " .. self:get_num_outputs() .. " output(s) }"
+    end,
+    __index = {
+        --- Get the output at the given coordinates.
+        --
+        -- Returns nil if no output is on the specified coordinate.
+        --
+        -- @tparam OutputLayout self the output layout object.
+        -- @tparam number x the X coordinate.
+        -- @tparam number y the Y coordinate.
+        -- @treturn Output the output at the given coordinates or nil.
+        get_output_at = function(self, x, y)
+            ffi.C.wf_OutputLayout_get_output_at(self, x, y)
+        end,
+
+        --- Get the output at the given coordinates and the closest point on it.
+        --
+        -- Returns `output, closest` meaning the output found at the given
+        -- origin point and the closest point to the given origin on the output.
+        --
+        -- @tparam OutputLayout self the output layout object.
+        -- @tparam Pointf origin The origin point to query for.
+        -- @treturn Output the output at the given coordinates.
+        -- @treturn Pointf the closest point to the origin inside the found
+        -- output.
+        get_output_coords_at = function(self, origin)
+            local closest = ffi.new('wf_Pointf')
+            local output = ffi.C.wf_OutputLayout_get_output_coords_at(self,
+                                                                      origin,
+                                                                      closest)
+            return output, closest
+        end,
+
+        --- Get the number of current outputs.
+        --
+        -- @tparam OutputLayout self the output layout object.
+        -- @treturn number the number of outputs.
+        get_num_outputs = function(self)
+            return ffi.C.wf_OutputLayout_get_num_outputs(self)
+        end,
+
+        --- Iterate through the current outputs.
+        -- 
+        -- Start by calling this function with `nil` as parameter and then
+        -- successively call it until the returned value is the same as the
+        -- first call.
+        -- 
+        -- @usage local first = output_layout:get_next_output(nil)
+        -- local output = first
+        -- repeat
+        --     print("Current output:", output)
+        --     local output = output_layout:get_next_output(output)
+        -- until output == first
+        -- @tparam OutputLayout self the output layout object.
+        -- @tparam Output prev the output to step forwards from.
+        -- @treturn Output the next output.
+        get_next_output = function(self, prev)
+            return ffi.C.wf_OutputLayout_get_next_output(self, prev)
+        end,
+
+        --- Get an output by name.
+        -- 
+        -- @tparam OutputLayout self the output layout object.
+        -- @tparam string name the name of the output.
+        -- @treturn Output the next output.
+        find_output = function(self, name)
+            return ffi.C.wf_OutputLayout_find_output(self, name)
+        end,
+
+        -- COMBAK: write the hook/unhook methods for this. We need a special
+        -- case in the Raw stuff to opt out of lifetime tracking since
+        -- OutputLayout is not an object but just a signal provider.
+
+        --- Hook into a signal on the output layout.
+        --
+        -- Start listening for and calling `handler` on this signal. 
+        -- The type of `data` depends on the signal being listened for.
+        -- See (TODO: signal definitions page).
+        --
+        -- @usage local layout = wf.get_core():get_output_layout()
+        -- layout:hook('output-added', function(layout, data)
+        --     print('An output has been added:', data.output)
+        -- end)
+        -- @usage
+        -- assert(handler == layout:hook('output-removed', handler))
+        --
+        -- @tparam OutputLayout self
+        -- @tparam string signal
+        -- @tparam fn(layout,data) handler
+        -- @treturn fn(layout,data) handler
+        hook = function(self, signal, handler)
+            local raw_handler = function(_emitter, data)
+                data = Raw:convert_signal_data('output-layout', signal, data)
+                handler(self, data)
+            end
+
+            ObjectData:set(self, handler, raw_handler,
+                           {lifetime_cleanup = false})
+            Raw:subscribe(self, signal, raw_handler, {lifetime_cleanup = false})
+            return handler
+        end,
+
+        --- Unhook from a signal on the output layout.
+        --
+        -- Stop listening for and calling `handler` on this signal.
+        --
+        -- @usage 
+        -- local handler = wf.get_core():hook('output-added',
+        --                             function(layout, data) end)
+        -- core:unhook('output-added', handler)
+        --
+        -- @usage local layout = wf.get_core():get_output_layout()
+        -- local handler = function() end
+        -- layout:hook('output-added', handler)
+        -- layout:hook('output-removed', handler)
+        -- layout:unhook('output-added', handler)
+        -- layout:unhook('output-removed', handler)
+        --
+        -- @tparam OutputLayout self
+        -- @tparam string signal
+        -- @tparam fn(layout,data) handler
         unhook = function(self, signal, handler)
             local raw_handler = ObjectData:get(self, handler)
             Raw:unsubscribe(self, signal, raw_handler)
@@ -882,6 +964,114 @@ ffi.metatype("wf_View", {
         end
     }
 })
+
+-- TODO: rewrite this in terms of OutputLayout/Output hooks with no Raw calls.
+--
+-- Outputs are represented as a single outputs table since there is only only
+-- central wflua instance per wayfire session.
+do
+    local outputs = {_signal_handlers = {}, _raw_outputs = nil}
+
+    -- Populate output pointers
+    do
+        local _raw_outputs = util.Set()
+        local output_layout = Wf.get_core():get_output_layout()
+
+        local first = output_layout:get_next_output(nil)
+        local output = first
+        repeat
+            _raw_outputs:add(output)
+
+            local output = output_layout:get_next_output(output)
+        until output == first
+
+        outputs._raw_outputs = _raw_outputs
+    end
+
+    --- Hook into a signal on all outputs.
+    --
+    -- Start listening for and calling `handler` on this signal. 
+    -- `output` is the specific `Output` that triggered the signal.
+    -- The type of `data` depends on the signal being listened for.
+    -- See (TODO: signal definitions page).
+    --
+    -- Note that this differs from calling `Output:hook()` on a specific
+    -- `output` as we are hooking into this signal for *all* outputs
+    -- simultaneously.
+    --
+    -- @usage 
+    -- local wf = require 'wf'
+    --
+    -- wf.outputs:hook('view-focused', function(output, data)
+    --     print('View ', data.view, ' focused on output ', output)
+    -- end)
+    -- @usage assert(handler == wf.outputs:hook('view-focused', handler))
+    --
+    -- @tparam string signal
+    -- @tparam fn(output,data) handler
+    -- @treturn fn(output,data) handler
+    function outputs:hook(signal, handler)
+        if not self._signal_handlers[signal] then
+            local hook = util.Hook()
+            local handler = function(emitter, data)
+                data = Raw:convert_signal_data('output', signal, data)
+                emitter = ffi.cast('wf_Output *', emitter)
+
+                hook:call(emitter, data)
+            end
+
+            self._signal_handlers[signal] = {hook = hook, handler = handler}
+
+            self._raw_outputs:for_each(function(output)
+                Raw:subscribe(output, signal, handler)
+            end)
+        end
+
+        self._signal_handlers[signal].hook:hook(handler)
+
+        return handler
+    end
+
+    --- Unhook from a signal on all outputs.
+    --
+    -- Stop listening for and calling `handler` on this signal.
+    -- @usage
+    -- local handler = wf.outputs:hook('view-focused',
+    --                                 function(output, data) end)
+    -- wf.outputs:unhook('view-focused', handler)
+    --
+    -- @usage local handler = function() end
+    -- wf.outputs:hook('view-mapped', handler)
+    -- wf.outputs:hook('view-focused', handler)
+    -- wf.outputs:unhook('view-mapped', handler)
+    -- wf.outputs:unhook('view-focused', handler)
+    --
+    -- @tparam string signal
+    -- @tparam fn(output,data) handler
+    function outputs:unhook(signal, handler)
+        if not self._signal_handlers[signal] then
+            error('Signal "' .. signal ..
+                      '" not in signal_handlers. Cannot unhook!')
+        end
+
+        local hook = self._signal_handlers[signal].hook
+
+        hook:unhook(handler)
+
+        if hook:is_empty() then
+            local handler = self._signal_handlers[signal].handler
+            self._raw_outputs:for_each(function(output)
+                Raw:unsubscribe(output, signal, handler)
+            end)
+
+            self._signal_handlers[signal] = nil
+        end
+
+        return handler
+    end
+
+    Wf.outputs = outputs
+end
 
 --
 --

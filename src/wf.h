@@ -26,9 +26,9 @@ wf_SignalConnection *wf_create_signal_connection(wf_SignalCallback cb,
                                                  void *data1, void *data2);
 void wf_destroy_signal_connection(wf_SignalConnection *conn);
 
-void wf_signal_subscribe(void *object, const char *signal,
+void wf_signal_subscribe(void *emitter, const char *signal,
                          wf_SignalConnection *handler);
-void wf_signal_unsubscribe(void *object, wf_SignalConnection *handler);
+void wf_signal_unsubscribe(void *emitter, wf_SignalConnection *handler);
 
 typedef struct {
     int x, y;
@@ -43,11 +43,11 @@ typedef struct {
     double x, y;
 } wf_Pointf;
 
-typedef struct wf_Output wf_Output;
-wf_Output *wf_get_next_output(wf_Output *prev);
-
 typedef struct wf_View wf_View;
 wf_View *wf_get_signaled_view(void *sig_data);
+
+typedef struct wf_Output wf_Output;
+wf_Output *wf_get_signaled_output(void *sig_data);
 
 const char *wf_View_to_string(wf_View *view);
 const char *wf_View_get_title(wf_View *view);
@@ -72,6 +72,7 @@ void wf_Output_focus_view(wf_Output *output, wf_View *v, _Bool raise);
 _Bool wf_Output_ensure_visible(wf_Output *output, wf_View *view);
 wf_Geometry wf_Output_get_workarea(wf_Output *output);
 
+typedef struct wf_OutputLayout wf_OutputLayout;
 typedef struct wf_Core wf_Core;
 wf_Core *wf_get_core();
 
@@ -95,3 +96,15 @@ const char *wf_Core_get_wayland_display(wf_Core *core);
 const char *wf_Core_get_xwayland_display(wf_Core *core);
 int wf_Core_run(wf_Core *core, const char *command);
 void wf_Core_shutdown(wf_Core *core);
+wf_OutputLayout *wf_Core_get_output_layout(wf_Core *core);
+
+wf_Output *wf_OutputLayout_get_output_at(wf_OutputLayout *layout, int x, int y);
+wf_Output *wf_OutputLayout_get_output_coords_at(wf_OutputLayout *layout,
+                                                wf_Pointf origin,
+                                                wf_Pointf *closest);
+unsigned int wf_OutputLayout_get_num_outputs(wf_OutputLayout *layout);
+// TODO: wf_Output* wf_OutputLayout_get_outputs(wf_OutputLayout *layout);
+wf_Output *wf_OutputLayout_get_next_output(wf_OutputLayout *layout,
+                                           wf_Output *prev);
+wf_Output *wf_OutputLayout_find_output(wf_OutputLayout *layout,
+                                       const char *name);

@@ -61,6 +61,15 @@ inline constexpr wf::compositor_core_t *unwrap_core(wf_Core *core) {
     return (wf::compositor_core_t *)core;
 }
 
+inline constexpr wf_OutputLayout *
+wrap_output_layout(wf::output_layout_t *layout) {
+    return (wf_OutputLayout *)layout;
+}
+inline constexpr wf::output_layout_t *
+unwrap_output_layout(wf_OutputLayout *layout) {
+    return (wf::output_layout_t *)layout;
+}
+
 struct LifetimeTracker : public wf::custom_data_t {
     struct CallbackPair {
         wf_LifetimeCallback callback;
@@ -149,27 +158,26 @@ wf_SignalConnection *wf_create_signal_connection(wf_SignalCallback cb,
 void wf_destroy_signal_connection(wf_SignalConnection *conn) {
     delete (wf::signal_connection_t *)conn;
 }
-void wf_signal_subscribe(void *object_, const char *signal_,
+void wf_signal_subscribe(void *emitter_, const char *signal_,
                          wf_SignalConnection *conn) {
     string_buf = signal_;
-    auto object = static_cast<wf::object_base_t *>(object_);
+    auto emitter = static_cast<wf::signal_provider_t *>(emitter_);
 
-    object->connect_signal(string_buf, (wf::signal_connection_t *)conn);
+    emitter->connect_signal(string_buf, (wf::signal_connection_t *)conn);
 }
 
-void wf_signal_unsubscribe(void *object_, wf_SignalConnection *conn) {
-    const auto object = static_cast<wf::object_base_t *>(object_);
+void wf_signal_unsubscribe(void *emitter_, wf_SignalConnection *conn) {
+    const auto emitter = static_cast<wf::signal_provider_t *>(emitter_);
 
-    object->disconnect_signal((wf::signal_connection_t *)conn);
-}
-
-wf_Output *wf_get_next_output(wf_Output *prev) {
-    const auto &outputs = wf::get_core().output_layout;
-    return wrap_output(outputs->get_next_output(unwrap_output(prev)));
+    emitter->disconnect_signal((wf::signal_connection_t *)conn);
 }
 
 wf_View *wf_get_signaled_view(void *sig_data) {
     return wrap_view(wf::get_signaled_view((wf::signal_data_t *)sig_data));
+}
+
+wf_Output *wf_get_signaled_output(void *sig_data) {
+    return wrap_output(wf::get_signaled_output((wf::signal_data_t *)sig_data));
 }
 
 // TODO: no need for this to be a macro.
@@ -297,4 +305,36 @@ int wf_Core_run(wf_Core *core, const char *command) {
     return unwrap_core(core)->run(string_buf);
 }
 void wf_Core_shutdown(wf_Core *core) { unwrap_core(core)->shutdown(); }
+wf_OutputLayout *wf_Core_get_output_layout(wf_Core *core) {
+    return wrap_output_layout(unwrap_core(core)->output_layout.get());
+}
+
+wf_Output *wf_OutputLayout_get_output_at(wf_OutputLayout *layout, int x,
+                                         int y) {
+    return wrap_output(unwrap_output_layout(layout)->get_output_at(x, y));
+}
+wf_Output *wf_OutputLayout_get_output_coords_at(wf_OutputLayout *layout,
+                                                wf_Pointf origin,
+                                                wf_Pointf *closest) {
+    wf::pointf_t closest_cpp;
+    const auto ret =
+        wrap_output(unwrap_output_layout(layout)->get_output_coords_at(
+            unwrap_pointf(origin), closest_cpp));
+    closest->x = closest_cpp.x;
+    closest->y = closest_cpp.y;
+    return ret;
+}
+unsigned int wf_OutputLayout_get_num_outputs(wf_OutputLayout *layout) {
+    return unwrap_output_layout(layout)->get_num_outputs();
+}
+wf_Output *wf_OutputLayout_get_next_output(wf_OutputLayout *layout,
+                                           wf_Output *prev) {
+    return wrap_output(
+        unwrap_output_layout(layout)->get_next_output(unwrap_output(prev)));
+}
+wf_Output *wf_OutputLayout_find_output(wf_OutputLayout *layout,
+                                       const char *name) {
+    string_buf = name;
+    return wrap_output(unwrap_output_layout(layout)->find_output(string_buf));
+}
 }
