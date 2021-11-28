@@ -965,27 +965,42 @@ ffi.metatype("wf_View", {
     }
 })
 
--- TODO: rewrite this in terms of OutputLayout/Output hooks with no Raw calls.
---
--- Outputs are represented as a single outputs table since there is only only
+-- Outputs represented as a single outputs table since there is only only
 -- central wflua instance per wayfire session.
 do
-    local outputs = {_signal_handlers = {}, _raw_outputs = nil}
+    local outputs = {_hooked_signals = {}}
+    local output_layout = Wf.get_core():get_output_layout()
 
     -- Populate output pointers
     do
-        local _raw_outputs = util.Set()
-        local output_layout = Wf.get_core():get_output_layout()
+        local _raw_outputs = {}
 
         local first = output_layout:get_next_output(nil)
         local output = first
         repeat
-            _raw_outputs:add(output)
+            _raw_outputs[object_id(output)] = output
 
             local output = output_layout:get_next_output(output)
         until output == first
 
         outputs._raw_outputs = _raw_outputs
+    end
+
+    -- Update the raw_outputs list appropriately
+    do
+        output_layout:hook('output-added', function(layout, data)
+            if outputs._raw_outputs[object_id(data.output)] == nil then
+                outputs._raw_outputs[object_id(data.output)] = data.output
+                for _, sig in pairs(outputs._hooked_signals) do
+                    data.output:hook(sig.signal, sig.handler)
+                end
+            end
+        end)
+        output_layout:hook('output-removed', function(layout, data)
+            outputs._raw_outputs[object_id(data.output)] = nil
+            -- No need to unhook signals as this is taken care of by the
+            -- lifetime cleanup of the output object.
+        end)
     end
 
     --- Hook into a signal on all outputs.
@@ -1011,24 +1026,13 @@ do
     -- @tparam fn(output,data) handler
     -- @treturn fn(output,data) handler
     function outputs:hook(signal, handler)
-        if not self._signal_handlers[signal] then
-            local hook = util.Hook()
-            local handler = function(emitter, data)
-                data = Raw:convert_signal_data('output', signal, data)
-                emitter = ffi.cast('wf_Output *', emitter)
-
-                hook:call(emitter, data)
-            end
-
-            self._signal_handlers[signal] = {hook = hook, handler = handler}
-
-            self._raw_outputs:for_each(function(output)
-                Raw:subscribe(output, signal, handler)
-            end)
+        self._hooked_signals[signal .. tostring(handler)] = {
+            signal = signal,
+            handler = handler
+        }
+        for _, output in pairs(self._raw_outputs) do
+            output:hook(signal, handler)
         end
-
-        self._signal_handlers[signal].hook:hook(handler)
-
         return handler
     end
 
@@ -1049,24 +1053,10 @@ do
     -- @tparam string signal
     -- @tparam fn(output,data) handler
     function outputs:unhook(signal, handler)
-        if not self._signal_handlers[signal] then
-            error('Signal "' .. signal ..
-                      '" not in signal_handlers. Cannot unhook!')
+        self._hooked_signals[signal .. tostring(handler)] = nil
+        for _, output in pairs(self._raw_outputs) do
+            output:unhook(signal, handler)
         end
-
-        local hook = self._signal_handlers[signal].hook
-
-        hook:unhook(handler)
-
-        if hook:is_empty() then
-            local handler = self._signal_handlers[signal].handler
-            self._raw_outputs:for_each(function(output)
-                Raw:unsubscribe(output, signal, handler)
-            end)
-
-            self._signal_handlers[signal] = nil
-        end
-
         return handler
     end
 
