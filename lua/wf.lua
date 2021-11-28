@@ -214,8 +214,10 @@ function Raw:convert_signal_data(type, signal, raw_data)
     return data_converter(raw_data)
 end
 
--- Public API
+---Functions
+-- @section
 
+-- Public API
 local Wf = {}
 
 --- Set option values in a given section.
@@ -233,6 +235,7 @@ local Wf = {}
 -- -- option = value
 -- -- ...
 -- @tparam {section,option=value,...} args
+-- @within Functions
 function Wf.set(args)
     if type(args) ~= 'table' then
         error([[The arguments to set should be passed in the form: 
@@ -570,7 +573,7 @@ ffi.metatype("wf_Core", {
 -- output_layout:hook("output-added", function(output_layout, data)
 --     print("new output!", data.output)
 -- end)
--- @type Output
+-- @type OutputLayout
 ffi.metatype("wf_OutputLayout", {
     __tostring = function(self)
         return "OutputLayout{ " .. self:get_num_outputs() .. " output(s) }"
@@ -1025,6 +1028,7 @@ do
     -- @tparam string signal
     -- @tparam fn(output,data) handler
     -- @treturn fn(output,data) handler
+    -- @within Functions
     function outputs:hook(signal, handler)
         self._hooked_signals[signal .. tostring(handler)] = {
             signal = signal,
@@ -1052,6 +1056,7 @@ do
     --
     -- @tparam string signal
     -- @tparam fn(output,data) handler
+    -- @within Functions
     function outputs:unhook(signal, handler)
         self._hooked_signals[signal .. tostring(handler)] = nil
         for _, output in pairs(self._raw_outputs) do
