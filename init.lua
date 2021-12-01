@@ -1,6 +1,52 @@
 local wf = require('wf')
+local wf_ipc = require('wf.ipc')
 
 print('Hello, lua!')
+
+wf_ipc.def_cmd {
+    'wait_for', [[
+Wait for a view with the given app id to be mapped.
+
+USAGE:
+    wait_for [-w] <APPID>
+
+A message will be returned saying "View mapped!" followed by the title of the
+mapped view. Pass -w to watch for this event indefinitely.
+]], function(promise, args)
+        if #args == 0 then
+            promise:reject_invalid_arguments('No arguments given.')
+            return
+        end
+
+        local watch = false
+        local app_id = args[1]
+        if #args == 2 and args[1] == '-w' then
+            watch = true
+            app_id = args[2]
+            promise:begin_notifications()
+        end
+
+        local handler
+        handler = wf.outputs:hook('view-mapped', function(output, data)
+            if data.view:get_app_id() == app_id then
+                local msg = "View mapped! " .. data.view:get_title()
+                if watch then
+                    promise:notify(msg)
+                else
+                    promise:resolve(msg)
+                    wf.outputs:unhook('view-mapped', handler)
+                end
+            end
+        end)
+
+        -- Clean up if the client shutsdown the connection before the command is
+        -- resolved.
+        promise:hook_cancel(function()
+            print('Promise cancelled. Cleaning up.')
+            wf.outputs:unhook('view-mapped', handler)
+        end)
+    end
+}
 
 wf.set {
     'zoom',
@@ -29,7 +75,7 @@ handler = wf.outputs:hook('view-mapped', function(output, data)
     print_view(data.view)
 
     if data.view:get_app_id() == 'foot' then
-        data.view:set_geometry({1, 2, 500, 300})
+        -- data.view:set_geometry({1, 2, 500, 300})
 
         data.view:hook('title-changed', function(view, data)
             print('>>> View title changed! New title:', data.view:get_title())

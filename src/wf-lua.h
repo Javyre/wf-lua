@@ -22,3 +22,14 @@ void wflua_lifetime_unsubscribe(void *object);
 void wflua_signal_subscribe(void *object, const char *signal);
 void wflua_signal_unsubscribe(void *object, const char *signal);
 void wflua_signal_unsubscribe_all(void *object);
+
+typedef enum {
+    WFLUA_IPC_COMMAND_ERROR = 1,
+    WFLUA_IPC_COMMAND_INVALID_ARGS = 2,
+} wflua_CommandError;
+
+void wflua_ipc_command_resolve(void *handle, const char *result);
+void wflua_ipc_command_reject(void *handle, const char *error,
+                              wflua_CommandError code);
+void wflua_ipc_command_begin_notifications(void *handle);
+void wflua_ipc_command_notify(void *handle, const char *notif);

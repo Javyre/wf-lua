@@ -1,5 +1,5 @@
 -- vim:ft=lua
-file = "lua/wf.lua"
+file = { "lua/wf.lua", "lua/wf/ipc.lua" }
 readme = "readme.md"
 title = "wf-lua documentation"
 project = "wf-lua"
