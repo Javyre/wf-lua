@@ -101,6 +101,8 @@ pub fn build(b: *Builder) !void {
 
     const gen_lua_header = b.addWriteFile("wf_h.lua.out", gen_lua_header: {
         var src = std.ArrayList(u8).init(b.allocator);
+        defer src.deinit();
+
         const writer = src.writer();
         try writer.writeAll(
             \\ local ffi = require 'ffi'
@@ -115,7 +117,7 @@ pub fn build(b: *Builder) !void {
         try writer.writeAll(
             \\ ]]
         );
-        break :gen_lua_header src.items;
+        break :gen_lua_header src.toOwnedSlice();
     });
 
     b.installFile("lua/wf.lua", b.fmt("{s}/wf.lua", .{lua_runtime_dir}));
@@ -130,6 +132,10 @@ pub fn build(b: *Builder) !void {
         .base_name = "wf_h.lua.out",
         .dest_rel_path = b.fmt("{s}/wf/wf_h.lua", .{lua_runtime_dir}),
     });
+
+    const wfmsg = b.addExecutable("wf-msg", "src/wf-msg.zig");
+    wfmsg.addIncludeDir("src");
+    wfmsg.install();
 
     var main_tests = b.addTest("src/wf-lua.zig");
     main_tests.setBuildMode(mode);

@@ -1,4 +1,4 @@
---- High-level lua bindings to wayfire's API.
+--- High-level lua bindings to Wayfire's API.
 --
 -- @author Javier A. Pollak
 -- @license GPL-v3
@@ -6,6 +6,7 @@
 -- @module wf
 --
 require 'wf.wf_h' -- Load the wf.h c header.
+require 'wf.ipc'
 
 local ffi = require 'ffi'
 local util = require 'wf.util'

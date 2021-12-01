@@ -97,6 +97,7 @@ const char *wf_Core_get_xwayland_display(wf_Core *core);
 int wf_Core_run(wf_Core *core, const char *command);
 void wf_Core_shutdown(wf_Core *core);
 wf_OutputLayout *wf_Core_get_output_layout(wf_Core *core);
+struct wl_event_loop *wf_Core_get_event_loop(wf_Core *core);
 
 wf_Output *wf_OutputLayout_get_output_at(wf_OutputLayout *layout, int x, int y);
 wf_Output *wf_OutputLayout_get_output_coords_at(wf_OutputLayout *layout,

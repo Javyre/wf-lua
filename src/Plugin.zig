@@ -2,6 +2,7 @@ const build_options = @import("build_options");
 const std = @import("std");
 const c = @import("c.zig");
 const Lua = @import("Lua.zig");
+const IpcServer = @import("IpcServer.zig");
 
 const Allocator = std.mem.Allocator;
 const This = @This();
@@ -31,6 +32,8 @@ event_callback: c.wflua_EventCallback,
 /// All stored memory should be in our root allocator.
 active_connections: ActiveConnectionsMap,
 
+ipc_server: IpcServer,
+
 fn lifetimeCB(emitter: ?*c_void, data: ?*c_void) callconv(.C) void {
     const plugin = getPlugin();
 
@@ -50,7 +53,6 @@ fn signalEventCB(
 ) callconv(.C) void {
     const plugin = getPlugin();
     const signal = @ptrCast([*:0]const u8, signal_);
-
     std.log.debug("Object {x} emitted {s}", .{ object.?, signal });
     plugin.event_callback.?(
         object,
@@ -197,17 +199,17 @@ export fn wflua_signal_unsubscribe_all(object: *c_void) void {
 /// > $HOME/.config/wayfire/init.lua
 /// Only env vars are checked for existence (not files).
 fn getInitFile(allocator: *Allocator) ![:0]const u8 {
-    const Path = std.fs.path;
+    const path = std.fs.path;
 
     if (std.os.getenv("WFLUA_INIT")) |file| {
-        return try std.mem.dupeZ(allocator, u8, file);
+        return try allocator.dupeZ(u8, file);
     } else if (std.os.getenv("XDG_CONFIG_HOME")) |file| {
-        return try Path.joinZ(allocator, &[_][]const u8{
+        return try path.joinZ(allocator, &[_][]const u8{
             file,
             "wayfire/init.lua",
         });
     } else if (std.os.getenv("HOME")) |file| {
-        return try Path.joinZ(allocator, &[_][]const u8{
+        return try path.joinZ(allocator, &[_][]const u8{
             file,
             ".config/wayfire/init.lua",
         });
@@ -238,6 +240,14 @@ fn deinitActiveConnections(self: *This) void {
 
 /// Plugin entry point.
 pub fn init(self: *This, allocator: *Allocator) !void {
+    // NOTE: SIGPIPE needs to be handled locally. So we need to disable the
+    // signal and handle the errors from write() and read().
+    std.os.sigaction(std.os.SIGPIPE, &.{
+        .handler = .{ .sigaction = std.os.SIG_IGN },
+        .mask = std.os.empty_sigset,
+        .flags = 0,
+    }, null);
+
     self.allocator = allocator;
 
     self.active_connections = ActiveConnectionsMap.init(self.allocator);
@@ -249,7 +259,10 @@ pub fn init(self: *This, allocator: *Allocator) !void {
     std.debug.print("\n\nHello, wayfireee!!\n\n\n", .{});
 
     self.L = c.luaL_newstate();
-    errdefer c.lua_close(self.L);
+    errdefer {
+        c.lua_close(self.L);
+        self.L = null;
+    }
     const L = self.L;
 
     c.luaL_openlibs(L);
@@ -264,6 +277,8 @@ pub fn init(self: *This, allocator: *Allocator) !void {
     try Lua.doFile(L, init_file);
 
     std.log.info("Done running init.", .{});
+
+    try self.ipc_server.init(self.allocator, self.L.?);
 }
 
 /// Plugin cleanup.
@@ -271,6 +286,8 @@ pub fn fini(self: *This) void {
     c.lua_close(self.L);
 
     self.deinitActiveConnections();
+
+    self.ipc_server.deinit();
 
     std.log.info("Goodbye.", .{});
 }

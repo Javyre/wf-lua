@@ -302,6 +302,9 @@ void wf_Core_shutdown(wf_Core *core) { unwrap_core(core)->shutdown(); }
 wf_OutputLayout *wf_Core_get_output_layout(wf_Core *core) {
     return wrap_output_layout(unwrap_core(core)->output_layout.get());
 }
+struct wl_event_loop *wf_Core_get_event_loop(wf_Core *core) {
+    return unwrap_core(core)->ev_loop;
+}
 
 wf_Output *wf_OutputLayout_get_output_at(wf_OutputLayout *layout, int x,
                                          int y) {
