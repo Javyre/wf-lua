@@ -11,8 +11,6 @@ extern "C" {
 #include <wayfire/signal-definitions.hpp>
 #include <wayfire/workspace-manager.hpp>
 
-#include <unordered_map>
-
 /// Temporary string buffer. Contents are invalid after any next function call.
 static std::string string_buf;
 
@@ -99,10 +97,6 @@ struct LifetimeTracker : public wf::custom_data_t {
         LOGE("Cannnot find callback to unsubscribe.");
     }
 };
-
-/// Global signal connection table.
-static std::unordered_map<wf_SignalCallback, wf::signal_connection_t>
-    signal_callbacks;
 
 extern "C" {
 

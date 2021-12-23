@@ -43,6 +43,8 @@ export fn plugin_init() ?*c_void {
 
     plugin.init(&gpa.allocator) catch |err| {
         std.log.err("Failed to initialize the plugin: {any}", .{err});
+        if (@errorReturnTrace()) |trace|
+            std.debug.dumpStackTrace(trace.*);
         return null;
     };
 
