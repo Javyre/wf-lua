@@ -19,13 +19,18 @@
 <nav id="navigation">
 <br/>
 <h1>wf-lua</h1>
+<ul>
+  <li><a href="../index.html">Index</a></li>
+</ul>
 <h2>Source</h2>
 <ul class="nowrap">
   <li><strong>wf.lua</strong></li>
+  <li><a href="../source/ipc.lua.html">ipc.lua</a></li>
 </ul>
 <h2>Modules</h2>
 <ul class="nowrap">
-  <li><a href="../index.html">wf</a></li>
+  <li><a href="../modules/wf.html">wf</a></li>
+  <li><a href="../modules/wf.ipc.html">wf.ipc</a></li>
 </ul>
 <h2>Topics</h2>
 <ul class="">
@@ -35,15 +40,15 @@
 <div id="content" class="verbatim-html">
     <h2>wf.lua</h2>
 <pre>
-<span class="comment">--- High-level lua bindings to wayfire's API.
+<span class="comment">--- High-level lua bindings to Wayfire's API.
 </span><span class="comment">--
 </span><span class="comment">-- @author Javier A. Pollak
 </span><span class="comment">-- @license GPL-v3
-</span><span class="comment">-- @alias Wf
 </span><span class="comment">-- @module wf
 </span><span class="comment">--
 </span><span class="global">require</span> <span class="string">'wf.wf_h'</span> <span class="comment">-- Load the wf.h c header.
-</span>
+</span><span class="global">require</span> <span class="string">'wf.ipc'</span>
+
 <span class="keyword">local</span> ffi = <span class="global">require</span> <span class="string">'ffi'</span>
 <span class="keyword">local</span> util = <span class="global">require</span> <span class="string">'wf.util'</span>
 <span class="keyword">local</span> Log = <span class="global">require</span> <span class="string">'wf.log'</span>
@@ -251,9 +256,11 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
     <span class="keyword">return</span> data_converter(raw_data)
 <span class="keyword">end</span>
 
-<span class="comment">-- Public API
+<span class="comment">---Functions
+</span><span class="comment">-- @section Functions
 </span>
-<span class="keyword">local</span> Wf = {}
+<span class="comment">-- Public API
+</span><span class="keyword">local</span> M = {}
 
 <span class="comment">--- Set option values in a given section.
 </span><span class="comment">--
@@ -269,8 +276,9 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
 </span><span class="comment">-- -- [section]
 </span><span class="comment">-- -- option = value
 </span><span class="comment">-- -- ...
-</span><a id="236"></a><span class="comment">-- @tparam {section,option=value,...} args
-</span><span class="keyword">function</span> Wf.set(args)
+</span><span class="comment">-- @tparam {section,option=value,...} args
+</span><a id="239"></a><span class="comment">-- @within Functions
+</span><span class="keyword">function</span> M.set(args)
     <span class="keyword">if</span> <span class="global">type</span>(args) ~= <span class="string">'table'</span> <span class="keyword">then</span>
         <span class="global">error</span>(<span class="string">[[The arguments to set should be passed in the form:
                 set { 'section', option = value, option2 = value, ... }]]</span>, <span class="number">2</span>)
@@ -360,7 +368,7 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
     <span class="comment">-- We don't need to actually call wayfire's get_core everytime since it should
 </span>    <span class="comment">-- never change.
 </span>    <span class="keyword">local</span> core = ffi.C.wf_get_core()
-    <span class="keyword">function</span> Wf.get_core() <span class="keyword">return</span> core <span class="keyword">end</span>
+    <span class="keyword">function</span> M.get_core() <span class="keyword">return</span> core <span class="keyword">end</span>
 <span class="keyword">end</span>
 
 <span class="comment">---The Wayfire compositor instance.
@@ -376,7 +384,7 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
         <span class="comment">--- Set the cursor to the given name from the cursor theme.
 </span>        <span class="comment">-- @tparam Core self the wayfire instance.
 </span>        <span class="comment">-- @tparam string name the cursor name.
-</span>        set_cursor = <span class="keyword">function</span>(self, name)<a id="342"></a>
+</span>        set_cursor = <span class="keyword">function</span>(self, name)<a id="345"></a>
             ffi.C.wf_Core_set_cursor(self, name)
         <span class="keyword">end</span>,
 
@@ -607,7 +615,7 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
 </span><span class="comment">-- output_layout:hook("output-added", function(output_layout, data)
 </span><span class="comment">--     print("new output!", data.output)
 </span><span class="comment">-- end)
-</span><span class="comment">-- @type Output
+</span><span class="comment">-- @type OutputLayout
 </span>ffi.metatype(<span class="string">"wf_OutputLayout"</span>, {
     __tostring = <span class="keyword">function</span>(self)
         <span class="keyword">return</span> <span class="string">"OutputLayout{ "</span> .. self:get_num_outputs() .. <span class="string">" output(s) }"</span>
@@ -1006,7 +1014,7 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
 </span><span class="comment">-- central wflua instance per wayfire session.
 </span><span class="keyword">do</span>
     <span class="keyword">local</span> outputs = {_hooked_signals = {}}
-    <span class="keyword">local</span> output_layout = Wf.get_core():get_output_layout()
+    <span class="keyword">local</span> output_layout = M.get_core():get_output_layout()
 
     <span class="comment">-- Populate output pointers
 </span>    <span class="keyword">do</span>
@@ -1043,7 +1051,7 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
     <span class="comment">--- Hook into a signal on all outputs.
 </span>    <span class="comment">--
 </span>    <span class="comment">-- Start listening for and calling <code>handler</code> on this signal.
-</span>    <span class="comment">-- <code>output</code> is the specific <a href="../index.html#Output">Output</a> that triggered the signal.
+</span>    <span class="comment">-- <code>output</code> is the specific <code>Output</code> that triggered the signal.
 </span>    <span class="comment">-- The type of <code>data</code> depends on the signal being listened for.
 </span>    <span class="comment">-- See (TODO: signal definitions page).
 </span>    <span class="comment">--
@@ -1062,6 +1070,7 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
 </span>    <span class="comment">-- @tparam string signal
 </span>    <span class="comment">-- @tparam fn(output,data) handler
 </span>    <span class="comment">-- @treturn fn(output,data) handler
+</span>    <span class="comment">-- @within Functions
 </span>    <span class="keyword">function</span> outputs:hook(signal, handler)
         self._hooked_signals[signal .. <span class="global">tostring</span>(handler)] = {
             signal = signal,
@@ -1089,6 +1098,7 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
 </span>    <span class="comment">--
 </span>    <span class="comment">-- @tparam string signal
 </span>    <span class="comment">-- @tparam fn(output,data) handler
+</span>    <span class="comment">-- @within Functions
 </span>    <span class="keyword">function</span> outputs:unhook(signal, handler)
         self._hooked_signals[signal .. <span class="global">tostring</span>(handler)] = <span class="keyword">nil</span>
         <span class="keyword">for</span> _, output <span class="keyword">in</span> <span class="global">pairs</span>(self._raw_outputs) <span class="keyword">do</span>
@@ -1097,30 +1107,16 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
         <span class="keyword">return</span> handler
     <span class="keyword">end</span>
 
-    Wf.outputs = outputs
+    M.outputs = outputs
 <span class="keyword">end</span>
 
-<span class="comment">--
-</span><span class="comment">--
-</span><span class="comment">-- TEST --
-</span><span class="comment">--
-</span><span class="comment">--
-</span>
-<span class="keyword">local</span> <span class="keyword">function</span> test(wf)
-    wf.set {<span class="string">'swayfire-deco'</span>, border_radius = <span class="number">123</span>, border_width = <span class="number">23</span>}
-
-    wf.outputs.hook(<span class="string">'view-mapped'</span>, <span class="keyword">function</span>(data)
-        <span class="global">print</span>(<span class="global">string</span>.format(<span class="string">'view %s mapped'</span>, data.view.title))
-    <span class="keyword">end</span>)
-<span class="keyword">end</span>
-
-<span class="keyword">return</span> Wf</pre>
+<span class="keyword">return</span> M</pre>
 
 </div> <!-- id="content" -->
 </div> <!-- id="main" -->
 <div id="about">
 <i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
-<i style="float:right;">Last updated 2021-11-28 19:36:09 </i>
+<i style="float:right;">Last updated 2021-12-26 19:25:54 </i>
 </div> <!-- id="about" -->
 </div> <!-- id="container" -->
 </body>

@@ -1,0 +1,298 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>wf-lua documentation</title>
+    <link rel="stylesheet" href="../ldoc.css" type="text/css" />
+</head>
+<body>
+<div id="container">
+<div id="product">
+	<div id="product_logo"></div>
+	<div id="product_name"><big><b></b></big></div>
+	<div id="product_description"></div>
+</div> <!-- id="product" -->
+<div id="main">
+<!-- Menu -->
+<nav id="navigation">
+<br/>
+<h1>wf-lua</h1>
+<ul>
+  <li><a href="../index.html">Index</a></li>
+</ul>
+<h2>Contents</h2>
+<ul>
+<li><a href="#Functions">Functions </a></li>
+<li><a href="#Class_Promise">Class Promise </a></li>
+</ul>
+<h2>Modules</h2>
+<ul class="nowrap">
+  <li><a href="../modules/wf.html">wf</a></li>
+  <li><strong>wf.ipc</strong></li>
+</ul>
+<h2>Topics</h2>
+<ul class="">
+  <li><a href="../topics/readme.md.html">readme</a></li>
+</ul>
+<h2>Source</h2>
+<ul class="nowrap">
+  <li><a href="../source/wf.lua.html">wf.lua</a></li>
+  <li><a href="../source/ipc.lua.html">ipc.lua</a></li>
+</ul>
+</nav> <!-- id="navigation" -->
+<div id="content" class="">
+<div class="module-info">
+<h1>Module <code>wf.ipc</code></h1>
+<p>Customizable IPC server for Wayfire.</p>
+<p>
+
+</p>
+    <h3>Info:</h3>
+    <ul>
+        <li><strong>License</strong>: GPL-v3</li>
+        <li><strong>Author</strong>: Javier A. Pollak</li>
+    </ul>
+<br>
+<h2><a href="#Functions">Functions </a></h2>
+<div class="function_list toc_list">
+	<div class="name"><a href="#def_cmd">def_cmd (args)</a></div>
+	<div class="summary">Define a new IPC command.</div>
+</div>
+<br>
+<h2><a href="#Class_Promise">Class Promise </a></h2>
+<div class="function_list toc_list">
+	<div class="name"><a href="#Promise:resolve">Promise:resolve (self, result_)</a></div>
+	<div class="summary">Resolve the promise sending a result string to the client.</div>
+	<div class="name"><a href="#Promise:begin_notifications">Promise:begin_notifications (self)</a></div>
+	<div class="summary">Signal the begining of the notification stream.</div>
+	<div class="name"><a href="#Promise:end_notifications">Promise:end_notifications (self)</a></div>
+	<div class="summary">Signal the end of the notification stream.</div>
+	<div class="name"><a href="#Promise:notify">Promise:notify (self, notification)</a></div>
+	<div class="summary">Send a notification message.</div>
+	<div class="name"><a href="#Promise:reject">Promise:reject (self, result_)</a></div>
+	<div class="summary">Reject the promise with an error message.</div>
+	<div class="name"><a href="#Promise:reject_invalid_arguments">Promise:reject_invalid_arguments (self, msg)</a></div>
+	<div class="summary">Reject the promise because of invalid arguments.</div>
+	<div class="name"><a href="#Promise:hook_cancel">Promise:hook_cancel (self, handler)</a></div>
+	<div class="summary">Hook into the promise being cancelled.</div>
+	<div class="name"><a href="#Promise:unhook_cancel">Promise:unhook_cancel (self, handler)</a></div>
+	<div class="summary">Unhook from the promise being cancelled.</div>
+</div>
+<br/>
+</div> <!-- id="module-info" -->
+    <h2 class="section-header ">
+        <a name="Functions"></a>
+        Functions
+    </h2>
+    <div class="section-content">
+
+    <dl class="function">
+    <dt>
+    <a name = "def_cmd"></a>
+    <pre class="signature"><span class="keyword">function</span> def_cmd(args: <span class="backtick"><code>{string,string,fn(promise,args)}</code></span>)</pre>
+    <a style="float:right;" href="../source/ipc.lua.html#290">line 290</a>
+    </dt>
+    <dd>
+    Define a new IPC command. </p>
+
+<p> Parameters are passed in a single array table.</p>
+
+<p> The first argumment is the name of the command.</p>
+
+<p> The second argument must contain the following in this order:</p>
+
+<ul>
+    <li>A single sentence summary ending with a <code>.</code>.</li>
+    <li><code>USAGE:</code> followed by a single line usage synopsis.</li>
+    <li>Any amount of trailing text to be included as additional documentation.</li>
+</ul>
+
+<p> The third argument is a function to handle the command. This function is
+ given as its arguments when it is called a <a href="../modules/wf.ipc.html#Promise">Promise</a> and an array of command
+ arguments.
+    <h3>Usage:</h3>
+    <ul class="examples">
+        <li><pre class="example"><span class="comment">-- An example "request-response" command.
+</span><span class="comment">-- Can be run with 'wf-msg wait_for &lt;APPID&gt;'.
+</span>
+<span class="keyword">local</span> wf_ipc = <span class="global">require</span>(<span class="string">'wf.ipc'</span>)
+
+wf_ipc.def_cmd {
+    <span class="string">'wait_for'</span>, <span class="string">[[
+Wait for a view with the given app id to be mapped.
+
+USAGE:
+    wait_for &lt;APPID&gt;
+
+A message will be returned saying 'View mapped!' followed by the title of the
+mapped view.
+]]</span>, <span class="keyword">function</span>(promise, args)
+        <span class="keyword">if</span> #args == <span class="number">0</span> <span class="keyword">then</span>
+            promise:reject_invalid_arguments(<span class="string">'No arguments given.'</span>)
+            <span class="keyword">return</span>
+        <span class="keyword">end</span>
+
+        <span class="keyword">local</span> handler
+        handler = wf.outputs:hook(<span class="string">'view-mapped'</span>, <span class="keyword">function</span>(output, data)
+            <span class="keyword">if</span> data.view:get_app_id() == args[<span class="number">1</span>] <span class="keyword">then</span>
+                promise:resolve(<span class="string">'View mapped! '</span> .. data.view:get_title())
+                wf.outputs:unhook(<span class="string">'view-mapped'</span>, handler)
+            <span class="keyword">end</span>
+        <span class="keyword">end</span>)
+
+        <span class="comment">-- Clean up if the client shutsdown the connection before the command
+</span>        <span class="comment">-- is resolved.
+</span>        promise:hook_cancel(<span class="keyword">function</span>()
+            <span class="global">print</span>(<span class="string">'Promise cancelled. Cleaning up.'</span>)
+            wf.outputs:unhook(<span class="string">'view-mapped'</span>, handler)
+        <span class="keyword">end</span>)
+    <span class="keyword">end</span>
+}</pre></li>
+        <li><pre class="example"><span class="comment">-- An example "watcher" command.
+</span><span class="comment">-- Can be run with 'wf-msg watch_for &lt;APPID&gt;'.
+</span>
+<span class="keyword">local</span> wf_ipc = <span class="global">require</span>(<span class="string">'wf.ipc'</span>)
+
+wf_ipc.def_cmd {
+    <span class="string">'watch_for'</span>, <span class="string">[[
+Watch for views with the given app id to be mapped.
+
+USAGE:
+    watch_for &lt;APPID&gt;
+
+A message will be sent saying 'View mapped!' followed by the title of the
+mapped view.
+]]</span>, <span class="keyword">function</span>(promise, args)
+        <span class="keyword">if</span> #args == <span class="number">0</span> <span class="keyword">then</span>
+            promise:reject_invalid_arguments(<span class="string">'No arguments given.'</span>)
+            <span class="keyword">return</span>
+        <span class="keyword">end</span>
+
+        promise:begin_notifications()
+
+        <span class="keyword">local</span> handler
+        handler = wf.outputs:hook(<span class="string">'view-mapped'</span>, <span class="keyword">function</span>(output, data)
+            <span class="keyword">if</span> data.view:get_app_id() == args[<span class="number">1</span>] <span class="keyword">then</span>
+                promise:notify(<span class="string">'View mapped! '</span> .. data.view:get_title())
+            <span class="keyword">end</span>
+        <span class="keyword">end</span>)
+
+        <span class="comment">-- Clean up when the client shutsdown the connection.
+</span>        promise:hook_cancel(<span class="keyword">function</span>()
+            <span class="global">print</span>(<span class="string">'Promise cancelled. Cleaning up.'</span>)
+            wf.outputs:unhook(<span class="string">'view-mapped'</span>, handler)
+        <span class="keyword">end</span>)
+    <span class="keyword">end</span>
+}</pre></li>
+    </ul>
+</dd>
+</dl>
+</div> <!-- class="section-content" -->
+    <h2 class="section-header has-description">
+        <a name="Class_Promise"></a>
+        Class Promise
+    </h2>
+    <div class="section-content">
+
+          <div class="section-description">
+          An ipc command promise. </p>
+
+<p> An ipc command is either a simple <em>'request-response'</em> command or a
+ <em>'watcher'</em> command. The command should go as follows:</p>
+
+<ul>
+    <li><p>For <em>'request-response'</em> commands: The command must only resolve or
+    reject the promise. The command may resolve or reject at any time.</p></li>
+    <li><p>For <em>'watcher'</em> commands: The command must first
+    <a href="../modules/wf.ipc.html#Promise:begin_notifications">Promise:begin_notifications</a> before then sending any amount of
+    notifications at any time. The command may <a href="../modules/wf.ipc.html#Promise:end_notifications">Promise:end_notifications</a>
+    to signal the end of the notification stream. The command may reject
+    only before the call to <a href="../modules/wf.ipc.html#Promise:begin_notifications">Promise:begin_notifications</a>.</p></li>
+</ul>
+
+<p> In both types of command, the promise will be cancelled in the event of a
+ connection drop. This event can be listened for with the
+ <a href="../modules/wf.ipc.html#Promise:hook_cancel">Promise:hook_cancel</a> method.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "Promise:resolve"></a>
+    <pre class="signature"><span class="keyword">function</span> Promise:resolve(result_: <span class="backtick"><a href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>)</pre>
+    <a style="float:right;" href="../source/ipc.lua.html#54">line 54</a>
+    </dt>
+    <dd>
+    Resolve the promise sending a result string to the client.
+</dd>
+    <dt>
+    <a name = "Promise:begin_notifications"></a>
+    <pre class="signature"><span class="keyword">function</span> Promise:begin_notifications()</pre>
+    <a style="float:right;" href="../source/ipc.lua.html#62">line 62</a>
+    </dt>
+    <dd>
+    Signal the begining of the notification stream.
+</dd>
+    <dt>
+    <a name = "Promise:end_notifications"></a>
+    <pre class="signature"><span class="keyword">function</span> Promise:end_notifications()</pre>
+    <a style="float:right;" href="../source/ipc.lua.html#72">line 72</a>
+    </dt>
+    <dd>
+    Signal the end of the notification stream.
+</dd>
+    <dt>
+    <a name = "Promise:notify"></a>
+    <pre class="signature"><span class="keyword">function</span> Promise:notify(notification: <span class="backtick"><a href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>)</pre>
+    <a style="float:right;" href="../source/ipc.lua.html#82">line 82</a>
+    </dt>
+    <dd>
+    Send a notification message.
+</dd>
+    <dt>
+    <a name = "Promise:reject"></a>
+    <pre class="signature"><span class="keyword">function</span> Promise:reject(result_: <span class="backtick"><a href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>)</pre>
+    <a style="float:right;" href="../source/ipc.lua.html#103">line 103</a>
+    </dt>
+    <dd>
+    Reject the promise with an error message.
+</dd>
+    <dt>
+    <a name = "Promise:reject_invalid_arguments"></a>
+    <pre class="signature"><span class="keyword">function</span> Promise:reject_invalid_arguments(msg: <span class="backtick"><a href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>)</pre>
+    <a style="float:right;" href="../source/ipc.lua.html#111">line 111</a>
+    </dt>
+    <dd>
+    Reject the promise because of invalid arguments.
+</dd>
+    <dt>
+    <a name = "Promise:hook_cancel"></a>
+    <pre class="signature"><span class="keyword">function</span> Promise:hook_cancel(handler: <span class="backtick"><code>fn()</code></span>)</pre>
+    <a style="float:right;" href="../source/ipc.lua.html#125">line 125</a>
+    </dt>
+    <dd>
+    Hook into the promise being cancelled. </p>
+
+<p> A promise can be cancelled if the connection to the client drops
+ while the promise is still pending. It is useful to hook into this
+ event in order to cleanly cancel any pending state for the command.
+</dd>
+    <dt>
+    <a name = "Promise:unhook_cancel"></a>
+    <pre class="signature"><span class="keyword">function</span> Promise:unhook_cancel(handler: <span class="backtick"><code>fn()</code></span>)</pre>
+    <a style="float:right;" href="../source/ipc.lua.html#133">line 133</a>
+    </dt>
+    <dd>
+    Unhook from the promise being cancelled.
+</dd>
+</dl>
+</div> <!-- class="section-content" -->
+</div> <!-- id="content" -->
+</div> <!-- id="main" -->
+<div id="about">
+<i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
+<i style="float:right;">Last updated 2021-12-26 19:25:54 </i>
+</div> <!-- id="about" -->
+</div> <!-- id="container" -->
+</body>
+</html>

@@ -1,0 +1,377 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>wf-lua documentation</title>
+    <link rel="stylesheet" href="../ldoc.css" type="text/css" />
+</head>
+<body>
+<div id="container">
+<div id="product">
+	<div id="product_logo"></div>
+	<div id="product_name"><big><b></b></big></div>
+	<div id="product_description"></div>
+</div> <!-- id="product" -->
+<div id="main">
+<!-- Menu -->
+<nav id="navigation">
+<br/>
+<h1>wf-lua</h1>
+<ul>
+  <li><a href="../index.html">Index</a></li>
+</ul>
+<h2>Source</h2>
+<ul class="nowrap">
+  <li><a href="../source/wf.lua.html">wf.lua</a></li>
+  <li><strong>ipc.lua</strong></li>
+</ul>
+<h2>Modules</h2>
+<ul class="nowrap">
+  <li><a href="../modules/wf.html">wf</a></li>
+  <li><a href="../modules/wf.ipc.html">wf.ipc</a></li>
+</ul>
+<h2>Topics</h2>
+<ul class="">
+  <li><a href="../topics/readme.md.html">readme</a></li>
+</ul>
+</nav> <!-- id="navigation" -->
+<div id="content" class="verbatim-html">
+    <h2>ipc.lua</h2>
+<pre>
+<span class="comment">--- Customizable IPC server for Wayfire.
+</span><span class="comment">--
+</span><span class="comment">-- @author Javier A. Pollak
+</span><span class="comment">-- @license GPL-v3
+</span><span class="comment">-- @alias Wf-IPC
+</span><span class="comment">-- @module wf.ipc
+</span><span class="comment">--
+</span><span class="keyword">local</span> ffi = <span class="global">require</span> <span class="string">'ffi'</span>
+<span class="keyword">local</span> util = <span class="global">require</span> <span class="string">'wf.util'</span>
+
+<span class="keyword">local</span> commands = {}
+
+wf__ipc_command_callback = <span class="keyword">function</span>(id, command_name, args)
+    <span class="keyword">local</span> cmd = commands[command_name]
+    <span class="keyword">if</span> <span class="keyword">not</span> cmd <span class="keyword">then</span>
+        <span class="keyword">local</span> msg = <span class="global">string</span>.format(<span class="string">'Unknown command '</span> % s <span class="string">''</span>, command_name)
+        <span class="keyword">return</span> <span class="keyword">true</span>, msg, <span class="number">1</span>
+    <span class="keyword">end</span>
+    <span class="keyword">local</span> cb = cmd.handler
+
+    <span class="keyword">local</span> result = <span class="keyword">nil</span>
+    <span class="keyword">local</span> error_code = <span class="number">0</span>
+
+    <span class="comment">--- An ipc command promise.
+</span>    <span class="comment">--
+</span>    <span class="comment">-- An ipc command is either a simple _'request-response'_ command or a
+</span>    <span class="comment">-- _'watcher'_ command. The command should go as follows:
+</span>    <span class="comment">--
+</span>    <span class="comment">-- - For _'request-response'_ commands: The command must only resolve or
+</span>    <span class="comment">--   reject the promise. The command may resolve or reject at any time.
+</span>    <span class="comment">--
+</span>    <span class="comment">-- - For _'watcher'_ commands: The command must first
+</span>    <span class="comment">--   <code>Promise:begin_notifications</code> before then sending any amount of
+</span>    <span class="comment">--   notifications at any time. The command may <code>Promise:end_notifications</code>
+</span>    <span class="comment">--   to signal the end of the notification stream. The command may reject
+</span>    <span class="comment">--   only before the call to <code>Promise:begin_notifications</code>.
+</span>    <span class="comment">--
+</span>    <span class="comment">-- In both types of command, the promise will be cancelled in the event of a
+</span>    <span class="comment">-- connection drop. This event can be listened for with the
+</span>    <span class="comment">-- <code>Promise:hook_cancel</code> method.
+</span>    <span class="comment">--
+</span>    <span class="comment">-- @type Promise
+</span>    <span class="keyword">local</span> promise = {
+        id = id,
+        pending = <span class="keyword">true</span>,
+        notifying = <span class="keyword">nil</span>,
+        cancel_hook = util.Hook {},
+
+        <span class="comment">-- Sync resolve
+</span>
+        <span class="comment">--- Resolve the promise sending a result string to the client.
+</span>        <span class="comment">-- @tparam Promise self the promise object.
+</span>        <a id="54"></a><span class="comment">-- @tparam string result_ the result string to send to the client.
+</span>        resolve = <span class="keyword">function</span>(self, result_)
+            <span class="global">assert</span>(self.pending, <span class="string">'Promise already resolved.'</span>)
+            result = <span class="global">tostring</span>(result_)
+            self.pending = <span class="keyword">false</span>
+        <span class="keyword">end</span>,
+
+        <span class="comment">--- Signal the begining of the notification stream.
+</span>        <a id="62"></a><span class="comment">-- @tparam Promise self the promise object.
+</span>        begin_notifications = <span class="keyword">function</span>(self)
+            <span class="global">assert</span>(self.pending, <span class="string">'Promise already resolved.'</span>)
+            <span class="comment">-- Synchronous notifications accumulate in this result table.
+</span>            result = {}
+            self.pending = <span class="keyword">false</span>
+            self.notifying = <span class="keyword">true</span>
+        <span class="keyword">end</span>,
+
+        <span class="comment">--- Signal the end of the notification stream.
+</span>        <a id="72"></a><span class="comment">-- @tparam Promise self the promise object.
+</span>        end_notifications = <span class="keyword">function</span>(self)
+            <span class="global">assert</span>(self.notifying == <span class="keyword">true</span>,
+                   <span class="string">'begin_notifications() has not been called.'</span>)
+            <span class="comment">-- This is actually just a special notification.
+</span>            <span class="global">table</span>.insert(result, <span class="keyword">false</span>);
+        <span class="keyword">end</span>,
+
+        <span class="comment">--- Send a notification message.
+</span>        <span class="comment">-- @tparam Promise self the promise object.
+</span>        <a id="82"></a><span class="comment">-- @tparam string notification the notification to send.
+</span>        notify = <span class="keyword">function</span>(self, notification)
+            <span class="global">assert</span>(self.notifying ~= <span class="keyword">nil</span>,
+                   <span class="string">'begin_notifications() has not been called.'</span>)
+            <span class="global">assert</span>(self.notifying ~= <span class="keyword">false</span>,
+                   <span class="string">'cannot send notification after end_notifications()'</span> ..
+                       <span class="string">' has been called.'</span>)
+
+            <span class="global">table</span>.insert(result, <span class="global">tostring</span>(notification))
+        <span class="keyword">end</span>,
+
+        reject_impl = <span class="keyword">function</span>(self, result_, error_code_)
+            <span class="global">assert</span>(self.pending, <span class="string">'Promise already resolved.'</span>)
+            result = <span class="global">tostring</span>(result_)
+            error_code = error_code_
+            self.pending = <span class="keyword">false</span>
+        <span class="keyword">end</span>,
+
+        <span class="comment">--- Reject the promise with an error message.
+</span>        <span class="comment">--
+</span>        <span class="comment">-- @tparam Promise self the promise object.
+</span>        <a id="103"></a><span class="comment">-- @tparam string result_ the error string to send to the client.
+</span>        reject = <span class="keyword">function</span>(self, result_)
+            self:reject_impl(result_, ffi.C.WFLUA_IPC_COMMAND_ERROR)
+        <span class="keyword">end</span>,
+
+        <span class="comment">--- Reject the promise because of invalid arguments.
+</span>        <span class="comment">--
+</span>        <span class="comment">-- @tparam Promise self the promise object.
+</span>        <a id="111"></a><span class="comment">-- @tparam string msg the error string to send to the client.
+</span>        reject_invalid_arguments = <span class="keyword">function</span>(self, msg)
+            msg = <span class="global">string</span>.format(<span class="string">'Invalid arguments given to %s: %s\nUsage: %s'</span>,
+                                command_name, msg, cmd.usage)
+            self:reject_impl(msg, ffi.C.WFLUA_IPC_COMMAND_INVALID_ARGS)
+        <span class="keyword">end</span>,
+
+        <span class="comment">--- Hook into the promise being cancelled.
+</span>        <span class="comment">--
+</span>        <span class="comment">-- A promise can be cancelled if the connection to the client drops
+</span>        <span class="comment">-- while the promise is still pending. It is useful to hook into this
+</span>        <span class="comment">-- event in order to cleanly cancel any pending state for the command.
+</span>        <span class="comment">--
+</span>        <span class="comment">-- @tparam Promise self the promise object.
+</span>        <a id="125"></a><span class="comment">-- @tparam fn() handler the callback.
+</span>        hook_cancel = <span class="keyword">function</span>(self, handler)
+            <span class="keyword">return</span> self.cancel_hook:hook(handler)
+        <span class="keyword">end</span>,
+
+        <span class="comment">--- Unhook from the promise being cancelled.
+</span>        <span class="comment">--
+</span>        <span class="comment">-- @tparam Promise self the promise object.
+</span>        <a id="133"></a><span class="comment">-- @tparam fn() handler the callback.
+</span>        unhook_cancel = <span class="keyword">function</span>(self, handler)
+            <span class="keyword">return</span> self.cancel_hook:unhook(handler)
+        <span class="keyword">end</span>
+    }
+
+    cb(promise, args)
+
+    <span class="keyword">if</span> promise.pending <span class="keyword">or</span> promise.notifying == <span class="keyword">true</span> <span class="keyword">then</span>
+        promise.end_notifications = <span class="keyword">function</span>(self)
+            <span class="global">assert</span>(self.notifying == <span class="keyword">true</span>,
+                   <span class="string">'begin_notifications() has not been called.'</span>)
+            ffi.C.wflua_ipc_command_notify(self.id, <span class="keyword">nil</span>)
+            self.notifying = <span class="keyword">false</span>
+        <span class="keyword">end</span>
+        promise.notify = <span class="keyword">function</span>(self, notification)
+            <span class="global">assert</span>(self.notifying ~= <span class="keyword">nil</span>,
+                   <span class="string">'begin_notifications() has not been called.'</span>)
+            <span class="global">assert</span>(self.notifying == <span class="keyword">true</span>,
+                   <span class="string">'cannot send notification after end_notifications()'</span> ..
+                       <span class="string">' has been called.'</span>)
+            ffi.C.wflua_ipc_command_notify(self.id, notification)
+        <span class="keyword">end</span>
+    <span class="keyword">end</span>
+
+    <span class="keyword">if</span> promise.pending <span class="keyword">then</span>
+        <span class="comment">-- Async resolve
+</span>        promise.resolve = <span class="keyword">function</span>(self, result)
+            <span class="global">assert</span>(self.pending, <span class="string">'Promise already resolved.'</span>)
+            result = <span class="global">tostring</span>(result)
+            ffi.C.wflua_ipc_command_resolve(self.id, result)
+            self.pending = <span class="keyword">false</span>
+        <span class="keyword">end</span>
+        promise.reject_impl = <span class="keyword">function</span>(self, result, error_code)
+            <span class="global">assert</span>(self.pending, <span class="string">'Promise already resolved.'</span>)
+            result = <span class="global">tostring</span>(result)
+            ffi.C.wflua_ipc_command_reject(self.id, result, error_code <span class="keyword">or</span>
+                                               ffi.C.WFLUA_IPC_COMMAND_ERROR)
+            self.pending = <span class="keyword">false</span>
+        <span class="keyword">end</span>
+
+        promise.begin_notifications = <span class="keyword">function</span>(self)
+            <span class="global">assert</span>(self.pending, <span class="string">'Promise already resolved.'</span>)
+            ffi.C.wflua_ipc_command_begin_notifications(self.id)
+            self.pending = <span class="keyword">false</span>
+            self.notifying = <span class="keyword">true</span>
+        <span class="keyword">end</span>
+
+        <span class="keyword">return</span> <span class="number">0</span>, <span class="keyword">nil</span>, <span class="keyword">nil</span>, <span class="keyword">function</span>()
+            promise.pending = <span class="keyword">false</span>
+            promise.cancel_hook:call()
+        <span class="keyword">end</span>
+    <span class="keyword">elseif</span> promise.notifying ~= <span class="keyword">nil</span> <span class="keyword">then</span>
+        <span class="global">assert</span>(promise.pending == <span class="keyword">false</span>)
+        <span class="global">assert</span>(<span class="global">type</span>(result) == <span class="string">'table'</span>)
+        <span class="keyword">return</span> <span class="number">2</span>, result, <span class="keyword">nil</span>, <span class="keyword">function</span>() promise.cancel_hook:call() <span class="keyword">end</span>
+    <span class="keyword">else</span>
+        <span class="keyword">return</span> <span class="number">1</span>, result, error_code, <span class="keyword">nil</span>
+    <span class="keyword">end</span>
+<span class="keyword">end</span>
+
+<span class="comment">---Functions
+</span><span class="comment">-- @section Functions
+</span>
+<span class="keyword">local</span> M = {}
+
+<span class="comment">--- Define a new IPC command.
+</span><span class="comment">--
+</span><span class="comment">-- Parameters are passed in a single array table.
+</span><span class="comment">--
+</span><span class="comment">-- The first argumment is the name of the command.
+</span><span class="comment">--
+</span><span class="comment">-- The second argument must contain the following in this order:
+</span><span class="comment">--
+</span><span class="comment">-- - A single sentence summary ending with a <code>.</code>.
+</span><span class="comment">-- - <code>USAGE:</code> followed by a single line usage synopsis.
+</span><span class="comment">-- - Any amount of trailing text to be included as additional documentation.
+</span><span class="comment">--
+</span><span class="comment">-- The third argument is a function to handle the command. This function is
+</span><span class="comment">-- given as its arguments when it is called a <code>Promise</code> and an array of command
+</span><span class="comment">-- arguments.
+</span><span class="comment">--
+</span><span class="comment">-- @usage
+</span><span class="comment">-- -- An example "request-response" command.
+</span><span class="comment">-- -- Can be run with 'wf-msg wait_for &lt;APPID&gt;'.
+</span><span class="comment">--
+</span><span class="comment">-- local wf_ipc = require('wf.ipc')
+</span><span class="comment">--
+</span><span class="comment">-- wf_ipc.def_cmd {
+</span><span class="comment">--     'wait_for', [[
+</span><span class="comment">-- Wait for a view with the given app id to be mapped.
+</span><span class="comment">--
+</span><span class="comment">-- USAGE:
+</span><span class="comment">--     wait_for &lt;APPID&gt;
+</span><span class="comment">--
+</span><span class="comment">-- A message will be returned saying 'View mapped!' followed by the title of the
+</span><span class="comment">-- mapped view.
+</span><span class="comment">-- ]], function(promise, args)
+</span><span class="comment">--         if #args == 0 then
+</span><span class="comment">--             promise:reject_invalid_arguments('No arguments given.')
+</span><span class="comment">--             return
+</span><span class="comment">--         end
+</span><span class="comment">--
+</span><span class="comment">--         local handler
+</span><span class="comment">--         handler = wf.outputs:hook('view-mapped', function(output, data)
+</span><span class="comment">--             if data.view:get_app_id() == args[1] then
+</span><span class="comment">--                 promise:resolve('View mapped! ' .. data.view:get_title())
+</span><span class="comment">--                 wf.outputs:unhook('view-mapped', handler)
+</span><span class="comment">--             end
+</span><span class="comment">--         end)
+</span><span class="comment">--
+</span><span class="comment">--         -- Clean up if the client shutsdown the connection before the command
+</span><span class="comment">--         -- is resolved.
+</span><span class="comment">--         promise:hook_cancel(function()
+</span><span class="comment">--             print('Promise cancelled. Cleaning up.')
+</span><span class="comment">--             wf.outputs:unhook('view-mapped', handler)
+</span><span class="comment">--         end)
+</span><span class="comment">--     end
+</span><span class="comment">-- }
+</span><span class="comment">--
+</span><span class="comment">-- @usage
+</span><span class="comment">-- -- An example "watcher" command.
+</span><span class="comment">-- -- Can be run with 'wf-msg watch_for &lt;APPID&gt;'.
+</span><span class="comment">--
+</span><span class="comment">-- local wf_ipc = require('wf.ipc')
+</span><span class="comment">--
+</span><span class="comment">-- wf_ipc.def_cmd {
+</span><span class="comment">--     'watch_for', [[
+</span><span class="comment">-- Watch for views with the given app id to be mapped.
+</span><span class="comment">--
+</span><span class="comment">-- USAGE:
+</span><span class="comment">--     watch_for &lt;APPID&gt;
+</span><span class="comment">--
+</span><span class="comment">-- A message will be sent saying 'View mapped!' followed by the title of the
+</span><span class="comment">-- mapped view.
+</span><span class="comment">-- ]], function(promise, args)
+</span><span class="comment">--         if #args == 0 then
+</span><span class="comment">--             promise:reject_invalid_arguments('No arguments given.')
+</span><span class="comment">--             return
+</span><span class="comment">--         end
+</span><span class="comment">--
+</span><span class="comment">--         promise:begin_notifications()
+</span><span class="comment">--
+</span><span class="comment">--         local handler
+</span><span class="comment">--         handler = wf.outputs:hook('view-mapped', function(output, data)
+</span><span class="comment">--             if data.view:get_app_id() == args[1] then
+</span><span class="comment">--                 promise:notify('View mapped! ' .. data.view:get_title())
+</span><span class="comment">--             end
+</span><span class="comment">--         end)
+</span><span class="comment">--
+</span><span class="comment">--         -- Clean up when the client shutsdown the connection.
+</span><span class="comment">--         promise:hook_cancel(function()
+</span><span class="comment">--             print('Promise cancelled. Cleaning up.')
+</span><span class="comment">--             wf.outputs:unhook('view-mapped', handler)
+</span><span class="comment">--         end)
+</span><span class="comment">--     end
+</span><span class="comment">-- }
+</span><a id="290"></a><span class="comment">-- @tparam {string,string,fn(promise,args)} args The definition of the command.
+</span><span class="keyword">function</span> M.def_cmd(args)
+    <span class="keyword">if</span> <span class="global">type</span>(args) ~= <span class="string">'table'</span> <span class="keyword">or</span> #args ~= <span class="number">3</span> <span class="keyword">then</span>
+        <span class="global">error</span>(<span class="string">[[The arguments to def_cmd should be passed in the form:
+def_cmd {
+    'command_name',
+    'Summary. USAGE: usage\nRest of help message.',
+    function(promise, args)
+        -- Handler
+    end,
+}]]</span>, <span class="number">2</span>)
+    <span class="keyword">end</span>
+
+    <span class="keyword">if</span> commands[args[<span class="number">1</span>]] <span class="keyword">then</span>
+        <span class="global">error</span>(<span class="string">'Command `'</span> .. args[<span class="number">1</span>] .. <span class="string">'` already defined!'</span>, <span class="number">2</span>)
+    <span class="keyword">end</span>
+
+    <span class="keyword">local</span> summary, usage, desc =
+        args[<span class="number">2</span>]:match <span class="string">'^%s*([^.]*.).-USAGE:%s*([^\n]+)%s*(.-)%s*$'</span>
+
+    <span class="keyword">if</span> <span class="keyword">not</span> summary <span class="keyword">then</span>
+        <span class="global">error</span>(<span class="string">[[Invalid format given for docstring.
+The second argument to def_cmd needs to contain the following in this order:
+- A single sentence summary ending with a `.`.
+- `USAGE:` followed by a single line usage synopsis.
+- Any amount of trailing text to be included as additional documentation.]]</span>, <span class="number">2</span>)
+    <span class="keyword">end</span>
+
+    commands[args[<span class="number">1</span>]] = {
+        summary = summary,
+        usage = usage,
+        description = desc,
+        handler = args[<span class="number">3</span>]
+    }
+<span class="keyword">end</span>
+
+<span class="keyword">return</span> M</pre>
+
+</div> <!-- id="content" -->
+</div> <!-- id="main" -->
+<div id="about">
+<i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
+<i style="float:right;">Last updated 2021-12-26 19:25:54 </i>
+</div> <!-- id="about" -->
+</div> <!-- id="container" -->
+</body>
+</html>
