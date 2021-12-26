@@ -36,6 +36,9 @@ sudo zig build install --prefix /usr -Drelease-fast
 
 ## Documentation
 
+You can view the latest generated HTML documentation online
+[here](https://javyre.github.io/wf-lua/).
+
 Wf-lua uses [`LDoc`](https://github.com/lunarmodules/LDoc) to generate
 documentation from comments in lua source code. LDoc can be installed from
 [LuaRocks](https://luarocks.org/modules/steved/ldoc).
