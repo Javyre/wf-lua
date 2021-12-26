@@ -2,7 +2,6 @@
 --
 -- @author Javier A. Pollak
 -- @license GPL-v3
--- @alias Wf
 -- @module wf
 --
 require 'wf.wf_h' -- Load the wf.h c header.
@@ -216,10 +215,10 @@ function Raw:convert_signal_data(type, signal, raw_data)
 end
 
 ---Functions
--- @section
+-- @section Functions
 
 -- Public API
-local Wf = {}
+local M = {}
 
 --- Set option values in a given section.
 --
@@ -237,7 +236,7 @@ local Wf = {}
 -- -- ...
 -- @tparam {section,option=value,...} args
 -- @within Functions
-function Wf.set(args)
+function M.set(args)
     if type(args) ~= 'table' then
         error([[The arguments to set should be passed in the form: 
                 set { 'section', option = value, option2 = value, ... }]], 2)
@@ -327,7 +326,7 @@ do
     -- We don't need to actually call wayfire's get_core everytime since it should
     -- never change.
     local core = ffi.C.wf_get_core()
-    function Wf.get_core() return core end
+    function M.get_core() return core end
 end
 
 ---The Wayfire compositor instance.
@@ -973,7 +972,7 @@ ffi.metatype("wf_View", {
 -- central wflua instance per wayfire session.
 do
     local outputs = {_hooked_signals = {}}
-    local output_layout = Wf.get_core():get_output_layout()
+    local output_layout = M.get_core():get_output_layout()
 
     -- Populate output pointers
     do
@@ -1066,7 +1065,7 @@ do
         return handler
     end
 
-    Wf.outputs = outputs
+    M.outputs = outputs
 end
 
-return Wf
+return M

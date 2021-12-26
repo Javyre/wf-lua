@@ -191,7 +191,7 @@ wf__ipc_command_callback = function(id, command_name, args)
 end
 
 ---Functions
--- @section
+-- @section Functions
 
 local M = {}
 
