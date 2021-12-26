@@ -33,6 +33,7 @@ pub fn pcall(L: LuaState, opts: struct {
             "pcall failed: {s}",
             .{c.lua_tolstring(L, -1, null)},
         );
+        c.lua_pop(L, 1);
         return LuaError.PCallFailed;
     }
 }
@@ -43,6 +44,7 @@ pub fn doString(L: LuaState, chunk: [:0]const u8) LuaError!void {
             "Failed to load string: {s}",
             .{c.lua_tolstring(L, -1, null)},
         );
+        c.lua_pop(L, 1);
         return LuaError.LoadStringFailed;
     }
 
@@ -51,6 +53,7 @@ pub fn doString(L: LuaState, chunk: [:0]const u8) LuaError!void {
             "Failed to run string: {s}",
             .{c.lua_tolstring(L, -1, null)},
         );
+        c.lua_pop(L, 1);
         return LuaError.RunStringFailed;
     }
 }
@@ -61,6 +64,7 @@ pub fn doFile(L: LuaState, file: [:0]const u8) LuaError!void {
             "Failed to load file: {s}",
             .{c.lua_tolstring(L, -1, null)},
         );
+        c.lua_pop(L, 1);
         return LuaError.LoadFileFailed;
     }
 
@@ -69,6 +73,7 @@ pub fn doFile(L: LuaState, file: [:0]const u8) LuaError!void {
             "Failed to run file: {s}",
             .{c.lua_tolstring(L, -1, null)},
         );
+        c.lua_pop(L, 1);
         return LuaError.RunFileFailed;
     }
 }
