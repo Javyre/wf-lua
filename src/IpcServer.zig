@@ -615,11 +615,7 @@ fn dispatchCommand(
                 c.lua_pop(self.L, 4);
                 std.debug.assert(c.lua_gettop(self.L) == orig_stack_len);
             }
-            const result = res: {
-                var len: usize = undefined;
-                const cstr = c.lua_tolstring(self.L, -3, &len);
-                break :res cstr[0..len];
-            };
+            const result = Lua.tostring(self.L, -3);
             const error_code = @intCast(i32, c.lua_tointeger(self.L, -2));
 
             if (error_code == 0) {
@@ -656,12 +652,7 @@ fn dispatchCommand(
                     c.lua_rawgeti(self.L, -3, i);
 
                     if (c.lua_isstring(self.L, -1) != 0) {
-                        const notif = x: {
-                            var len: usize = undefined;
-                            const cstr =
-                                c.lua_tolstring(self.L, -1, &len);
-                            break :x cstr[0..len];
-                        };
+                        const notif = Lua.tostring(self.L, -1);
 
                         try proto.sendNotif(ipc.Command.NotifSend{
                             .Notif = .{

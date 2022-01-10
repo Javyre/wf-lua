@@ -11,6 +11,12 @@ const LuaError = error{
     PCallFailed,
 };
 
+pub fn tostring(L: LuaState, index: c_int) [:0]const u8 {
+    var len: usize = undefined;
+    const cstr = c.lua_tolstring(L, index, &len);
+    return cstr[0..len:0];
+}
+
 pub const Ref = struct { ref: c_int };
 
 pub fn ref(L: LuaState) Ref {
@@ -31,7 +37,7 @@ pub fn pcall(L: LuaState, opts: struct {
     if (c.lua_pcall(L, opts.nargs, opts.nresults, opts.errfunc) != 0) {
         std.log.err(
             "pcall failed: {s}",
-            .{c.lua_tolstring(L, -1, null)},
+            .{tostring(L, -1)},
         );
         c.lua_pop(L, 1);
         return LuaError.PCallFailed;
@@ -42,7 +48,7 @@ pub fn doString(L: LuaState, chunk: [:0]const u8) LuaError!void {
     if (c.luaL_loadstring(L, chunk) != 0) {
         std.log.err(
             "Failed to load string: {s}",
-            .{c.lua_tolstring(L, -1, null)},
+            .{tostring(L, -1)},
         );
         c.lua_pop(L, 1);
         return LuaError.LoadStringFailed;
@@ -51,7 +57,7 @@ pub fn doString(L: LuaState, chunk: [:0]const u8) LuaError!void {
     if (c.lua_pcall(L, 0, c.LUA_MULTRET, 0) != 0) {
         std.log.err(
             "Failed to run string: {s}",
-            .{c.lua_tolstring(L, -1, null)},
+            .{tostring(L, -1)},
         );
         c.lua_pop(L, 1);
         return LuaError.RunStringFailed;
@@ -62,7 +68,7 @@ pub fn doFile(L: LuaState, file: [:0]const u8) LuaError!void {
     if (c.luaL_loadfile(L, file) != 0) {
         std.log.err(
             "Failed to load file: {s}",
-            .{c.lua_tolstring(L, -1, null)},
+            .{tostring(L, -1)},
         );
         c.lua_pop(L, 1);
         return LuaError.LoadFileFailed;
@@ -71,7 +77,7 @@ pub fn doFile(L: LuaState, file: [:0]const u8) LuaError!void {
     if (c.lua_pcall(L, 0, c.LUA_MULTRET, 0) != 0) {
         std.log.err(
             "Failed to run file: {s}",
-            .{c.lua_tolstring(L, -1, null)},
+            .{tostring(L, -1)},
         );
         c.lua_pop(L, 1);
         return LuaError.RunFileFailed;
