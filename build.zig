@@ -10,42 +10,24 @@ pub fn build(b: *Builder) !void {
     // between Debug, ReleaseSafe, ReleaseFast, and ReleaseSmall.
     const mode = b.standardReleaseOptions();
 
-    // NOTE: Wayfire paths aren't read from pkg-config as the values set by
-    // wayfire are all absolute paths and thus would not respect the
-    // installation prefix.
-    const wf_plugin_dir = "lib/wayfire";
-    const wf_metadata_dir = "share/wayfire/metadata";
-    const lua_runtime_dir = b.option(
-        []const u8,
-        "lua-runtime-dir",
-        "The directory where lua files are installed." ++
-            " (relative to the install prefix)",
-    ) orelse "share/wayfire/lua";
+    const shared = .{
+        // NOTE: Wayfire paths aren't read from pkg-config as the values set by
+        // wayfire are all absolute paths and thus would not respect the
+        // installation prefix.
+        .wf_plugin_dir = "lib/wayfire",
+        .wf_metadata_dir = "share/wayfire/metadata",
+        .lua_runtime_dir = x: {
+            const val = b.option(
+                []const u8,
+                "lua-runtime-dir",
+                "The directory where lua files are installed." ++
+                    " (relative to the install prefix)",
+            ) orelse "share/wayfire/lua";
+            break :x val;
+        },
 
-    const cpp_command =
-        "clang++ $(pkg-config --cflags wayfire) " ++
-        "-Wall -Wextra -Werror -O3 -g -std=c++17 " ++
-        "-fPIC -DWLR_USE_UNSTABLE -DWAYFIRE_PLUGIN ";
-
-    // TODO: cache this somehow. (makefile?)
-    const cpp_sources = [_][]const u8{ "wf", "wf-plugin" };
-    var cpp_objs = std.ArrayList(*std.build.RunStep).init(b.allocator);
-    var cpp_cleanup = std.ArrayList(*std.build.RunStep).init(b.allocator);
-    inline for (cpp_sources) |source| {
-        try cpp_objs.append(b.addSystemCommand(&[_][]const u8{
-            "sh",
-            "-c",
-            b.fmt(
-                cpp_command ++
-                    "-c src/" ++ source ++ ".cpp " ++
-                    "-o {s}/" ++ source ++ ".o",
-                .{b.cache_root},
-            ),
-        }));
-        try cpp_cleanup.append(b.addSystemCommand(&[_][]const u8{
-            "rm", b.fmt("{s}/" ++ source ++ ".o", .{b.cache_root}),
-        }));
-    }
+        .plugin_cpp_objects = b.addSystemCommand(&.{ "make", "plugin_objs" }),
+    };
 
     const plugin = b.addSharedLibrary(
         "wf-lua",
@@ -53,50 +35,24 @@ pub fn build(b: *Builder) !void {
         .unversioned,
     );
     {
-        inline for (cpp_sources) |source| {
-            plugin.addObjectFile(
-                b.fmt("{s}/" ++ source ++ ".o", .{b.cache_root}),
-            );
-        }
-        plugin.addIncludeDir("src");
-        // TODO: change to linkLibCpp when zig version is bumped
-        plugin.linkSystemLibrary("c++");
-        plugin.linkSystemLibrary("wayfire");
-        plugin.linkSystemLibrary("luajit");
-
-        plugin.defineCMacro("WLR_USE_UNSTABLE");
-        plugin.defineCMacro("WAYFIRE_PLUGIN");
-        plugin.addBuildOption(
-            []const u8,
-            "LUA_RUNTIME",
-            b.fmt("{s}/{s}", .{ b.install_prefix, lua_runtime_dir }),
-        );
+        addLibs(b, shared, plugin);
+        defineConstants(b, shared, plugin);
 
         plugin.setBuildMode(mode);
-        plugin.override_dest_dir = InstallDir{ .Custom = wf_plugin_dir };
+        plugin.override_dest_dir = InstallDir{ .Custom = shared.wf_plugin_dir };
         plugin.force_pic = true;
         plugin.rdynamic = true;
 
-        // Plugin depends on C++ Objects
-        for (cpp_objs.items) |obj_step| {
-            plugin.step.dependOn(&obj_step.step);
-        }
-
         const install_plugin = b.addInstallArtifact(plugin);
 
-        // C++ Objects Cleanup depends on Plugin
-        // Install Plugin      depends on C++ Objects Cleanup
-        for (cpp_cleanup.items) |cleanup| {
-            cleanup.step.dependOn(&plugin.step);
-            install_plugin.step.dependOn(&cleanup.step);
-        }
+        install_plugin.step.dependOn(&plugin.step);
 
         b.getInstallStep().dependOn(&install_plugin.step);
     }
 
     b.installFile(
         "metadata/wf-lua.xml",
-        b.fmt("{s}/wf-lua.xml", .{wf_metadata_dir}),
+        b.fmt("{s}/wf-lua.xml", .{shared.wf_metadata_dir}),
     );
 
     const gen_lua_header = b.addWriteFile("wf_h.lua.out", gen_lua_header: {
@@ -120,17 +76,17 @@ pub fn build(b: *Builder) !void {
         break :gen_lua_header src.toOwnedSlice();
     });
 
-    b.installFile("lua/wf.lua", b.fmt("{s}/wf.lua", .{lua_runtime_dir}));
+    b.installFile("lua/wf.lua", b.fmt("{s}/wf.lua", .{shared.lua_runtime_dir}));
     b.installDirectory(.{
         .source_dir = "lua/wf",
-        .install_dir = InstallDir{ .Custom = lua_runtime_dir },
+        .install_dir = InstallDir{ .Custom = shared.lua_runtime_dir },
         .install_subdir = "wf",
     });
     installFromWriteFile(.{
         .builder = b,
         .wfs = gen_lua_header,
         .base_name = "wf_h.lua.out",
-        .dest_rel_path = b.fmt("{s}/wf/wf_h.lua", .{lua_runtime_dir}),
+        .dest_rel_path = b.fmt("{s}/wf/wf_h.lua", .{shared.lua_runtime_dir}),
     });
 
     const wfmsg = b.addExecutable("wf-msg", "src/wf-msg.zig");
@@ -138,10 +94,42 @@ pub fn build(b: *Builder) !void {
     wfmsg.install();
 
     var main_tests = b.addTest("src/wf-lua.zig");
+    addLibs(b, shared, main_tests);
+    defineConstants(b, shared, main_tests);
     main_tests.setBuildMode(mode);
 
     const test_step = b.step("test", "Run library tests");
     test_step.dependOn(&main_tests.step);
+}
+
+fn addLibs(b: *Builder, shared: anytype, step: *std.build.LibExeObjStep) void {
+    inline for (.{ "src/wf.o", "src/wf-plugin.o" }) |source| {
+        step.addObjectFile(
+            b.fmt("{s}/cxx/" ++ source, .{b.cache_root}),
+        );
+    }
+    step.step.dependOn(&shared.plugin_cpp_objects.step);
+
+    step.addIncludeDir("src");
+    // TODO: change to linkLibCpp when zig version is bumped
+    step.linkSystemLibrary("c++");
+    step.linkSystemLibrary("wayfire");
+    step.linkSystemLibrary("luajit");
+    step.linkSystemLibrary("xkbcommon");
+}
+
+fn defineConstants(
+    b: *Builder,
+    shared: anytype,
+    step: *std.build.LibExeObjStep,
+) void {
+    step.defineCMacro("WLR_USE_UNSTABLE");
+    step.defineCMacro("WAYFIRE_PLUGIN");
+    step.addBuildOption(
+        []const u8,
+        "LUA_RUNTIME",
+        b.fmt("{s}/{s}", .{ b.install_prefix, shared.lua_runtime_dir }),
+    );
 }
 
 const InstallFromWriteFileOpts = struct {
