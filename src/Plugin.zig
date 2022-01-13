@@ -2,6 +2,7 @@ const build_options = @import("build_options");
 const std = @import("std");
 const c = @import("c.zig");
 const Lua = @import("Lua.zig");
+const SignalDispatcher = @import("SignalDispatcher.zig");
 const KeyMappings = @import("KeyMappings.zig");
 const IpcServer = @import("IpcServer.zig");
 
@@ -15,13 +16,12 @@ pub fn getPlugin() *This {
     return &plugin_;
 }
 
+pub fn getPluginSignalDispatcher() *SignalDispatcher {
+    return &getPlugin().signal_dispatcher;
+}
 pub fn getPluginKeyMappings() *KeyMappings {
     return &getPlugin().key_mappings;
 }
-
-// { emitter: { signal-name: connection } }
-const ObjectConnections = std.StringHashMap(*c.wf_SignalConnection);
-const ActiveConnectionsMap = std.AutoHashMap(*c_void, ObjectConnections);
 
 /// Root allocator used for the lifetime of the plugin.
 allocator: *Allocator,
@@ -29,44 +29,10 @@ allocator: *Allocator,
 /// The lua state handle.
 L: ?*c.lua_State,
 
-/// This callback is used for most C -> lua communication.
-event_callback: c.wflua_EventCallback,
-
-/// Map of active signal connections grouped by wayfire object.
-/// { emitter: { signal-name: connection, ... }, ... }
-/// All stored memory should be in our root allocator.
-active_connections: ActiveConnectionsMap,
-
+signal_dispatcher: SignalDispatcher,
 key_mappings: KeyMappings,
 ipc_server: IpcServer,
 
-fn lifetimeCB(emitter: ?*c_void, data: ?*c_void) callconv(.C) void {
-    const plugin = getPlugin();
-
-    std.log.debug("Object died: {x}", .{emitter.?});
-    plugin.event_callback.?(
-        emitter.?,
-        .WFLUA_EVENT_TYPE_EMITTER_DESTROYED,
-        null,
-        null,
-    );
-}
-
-fn signalEventCB(
-    sig_data: ?*c_void,
-    object: ?*c_void,
-    signal_: ?*c_void,
-) callconv(.C) void {
-    const plugin = getPlugin();
-    const signal = @ptrCast([*:0]const u8, signal_);
-    std.log.debug("Object {x} emitted {s}", .{ object.?, signal });
-    plugin.event_callback.?(
-        object,
-        .WFLUA_EVENT_TYPE_SIGNAL,
-        signal,
-        sig_data,
-    );
-}
 
 /// Exposed standard zig logger to lua.
 export fn wflua_log(lvl: c.wflua_LogLvl, msg: [*:0]const u8) void {
@@ -77,126 +43,6 @@ export fn wflua_log(lvl: c.wflua_LogLvl, msg: [*:0]const u8) void {
         .WFLUA_LOGLVL_ERR => scope.err("{s}", .{msg}),
         _ => unreachable,
     }
-}
-
-/// Register the lua event callback.
-export fn wflua_register_event_callback(callback: c.wflua_EventCallback) void {
-    const plugin = getPlugin();
-
-    std.debug.assert(plugin.event_callback == null);
-    plugin.event_callback = callback;
-}
-/// Start listening for an object being destroyed.
-export fn wflua_lifetime_subscribe(object: *c_void) void {
-    std.log.debug("Watching object lifetime: {x}", .{object});
-    c.wf_lifetime_subscribe(object, lifetimeCB, null);
-}
-/// Stop listening for an object being destroyed.
-export fn wflua_lifetime_unsubscribe(object: *c_void) void {
-    std.log.debug("Stopped watching object lifetime: {x}", .{object});
-    c.wf_lifetime_unsubscribe(object, lifetimeCB);
-}
-
-/// Start listening for an object's signal.
-export fn wflua_signal_subscribe(object: *c_void, signal: [*:0]const u8) void {
-    const plugin = getPlugin();
-
-    var object_conns = mk_oc: {
-        const gop =
-            plugin.active_connections.getOrPut(object) catch unreachable;
-        if (!gop.found_existing) {
-            gop.value_ptr.* = ObjectConnections.init(plugin.allocator);
-        }
-        break :mk_oc gop.value_ptr;
-    };
-
-    const owned_signal =
-        plugin.allocator.dupeZ(u8, std.mem.span(signal)) catch unreachable;
-    errdefer plugin.allocator.free(owned_signal);
-
-    const connection = c.wf_create_signal_connection(
-        signalEventCB,
-        object,
-        @ptrCast(*c_void, owned_signal),
-    );
-    errdefer c.wf_destroy_signal_connection(connection);
-
-    if (object_conns.fetchPut(
-        owned_signal,
-        connection.?,
-    ) catch unreachable) |kv| {
-        std.log.err(
-            "Subscribed to signal more than once on the same object! {x}",
-            .{object},
-        );
-        plugin.allocator.free(kv.key);
-        c.wf_destroy_signal_connection(kv.value);
-    }
-
-    c.wf_signal_subscribe(object, signal, connection);
-
-    std.log.debug(
-        "Watching object {x} for signal: {s}",
-        .{ object, signal },
-    );
-}
-
-/// Stop listening for an object's signal.
-export fn wflua_signal_unsubscribe(
-    object: *c_void,
-    signal: [*:0]const u8,
-) void {
-    // Just destroy the appropriate signal connection object and the signal will
-    // be disconnected.
-
-    const plugin = getPlugin();
-
-    var object_conns = plugin.active_connections.get(object) orelse {
-        std.log.err(
-            "Unsubscribed from non-subscribed-to object! {x}",
-            .{object},
-        );
-        return;
-    };
-
-    const sig_entry = object_conns.fetchRemove(std.mem.span(signal)) orelse {
-        std.log.err(
-            "Unsubscribed from non-subscribed-to signal! {s} on {x}",
-            .{ signal, object },
-        );
-        return;
-    };
-
-    plugin.allocator.free(sig_entry.key);
-    c.wf_destroy_signal_connection(sig_entry.value);
-
-    if (object_conns.count() == 0) {
-        _ = plugin.active_connections.remove(object);
-        object_conns.deinit();
-    }
-
-    std.log.debug(
-        "Stopped watching object {x} for signal: {s}",
-        .{ object, signal },
-    );
-}
-
-/// Stop listening for any of an object's signals.
-export fn wflua_signal_unsubscribe_all(object: *c_void) void {
-    // Just free all the signal connections of an object and the signals will be
-    // disconnected.
-    const plugin = getPlugin();
-
-    const ac = &plugin.active_connections;
-    var object_conns_entry = ac.fetchRemove(object) orelse {
-        std.log.err(
-            "Unsubscribed from non-subscribed-to object! {x}",
-            .{object},
-        );
-        return;
-    };
-
-    plugin.deinitObjectConnections(&object_conns_entry.value);
 }
 
 /// Find the lua init file using the following precedence:
@@ -225,25 +71,6 @@ fn getInitFile(allocator: *Allocator) ![:0]const u8 {
     return error.FileNotFound;
 }
 
-/// Recursively deinit an ObjectConnections map.
-fn deinitObjectConnections(self: *This, obj_entry: *ObjectConnections) void {
-    var iter_sigs = obj_entry.iterator();
-    while (iter_sigs.next()) |kv| {
-        self.allocator.free(kv.key_ptr.*);
-        c.wf_destroy_signal_connection(kv.value_ptr.*);
-    }
-    obj_entry.deinit();
-}
-
-/// Recursively deinit the active_connections map.
-fn deinitActiveConnections(self: *This) void {
-    var iter_objs = self.active_connections.valueIterator();
-    while (iter_objs.next()) |obj_conns| {
-        self.deinitObjectConnections(obj_conns);
-    }
-    self.active_connections.deinit();
-}
-
 /// Plugin entry point.
 pub fn init(self: *This, allocator: *Allocator) !void {
     // NOTE: SIGPIPE needs to be handled locally. So we need to disable the
@@ -255,9 +82,6 @@ pub fn init(self: *This, allocator: *Allocator) !void {
     }, null);
 
     self.allocator = allocator;
-
-    self.active_connections = ActiveConnectionsMap.init(self.allocator);
-    errdefer self.deinitActiveConnections();
 
     var arena = std.heap.ArenaAllocator.init(self.allocator);
     defer arena.deinit();
@@ -277,6 +101,8 @@ pub fn init(self: *This, allocator: *Allocator) !void {
     try Lua.doString(L, "package.path = package.path .. ';" ++
         build_options.LUA_RUNTIME ++ "/?.lua'");
 
+    // Prepare the dispatcher state.
+    try self.signal_dispatcher.init(self.allocator, self.L.?);
     // Prepare the mappings state.
     try self.key_mappings.init(self.allocator, self.L.?);
 
@@ -294,10 +120,9 @@ pub fn init(self: *This, allocator: *Allocator) !void {
 pub fn fini(self: *This) void {
     self.ipc_server.deinit();
     self.key_mappings.deinit();
+    self.signal_dispatcher.deinit();
 
     c.lua_close(self.L);
-
-    self.deinitActiveConnections();
 
     std.log.info("Goodbye.", .{});
 }
