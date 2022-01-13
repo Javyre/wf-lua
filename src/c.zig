@@ -7,6 +7,9 @@ pub usingnamespace @cImport({
     @cInclude("lualib.h");
     @cInclude("luajit.h");
 
+    @cInclude("xkbcommon/xkbcommon.h");
+    @cInclude("wlr/types/wlr_keyboard.h");
+    @cInclude("wlr/types/wlr_seat.h");
     @cInclude("wayland-server-core.h");
 
     @cInclude("wf.h");

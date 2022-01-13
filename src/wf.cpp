@@ -68,6 +68,27 @@ unwrap_output_layout(wf_OutputLayout *layout) {
     return (wf::output_layout_t *)layout;
 }
 
+inline constexpr wf_InputEventProcessingMode
+wrap_input_event_proc_mode(wf::input_event_processing_mode_t mode) {
+    switch (mode) {
+    case wf::input_event_processing_mode_t::FULL:
+        return WF_INPUT_EVENT_PROC_MODE_FULL;
+    case wf::input_event_processing_mode_t::NO_CLIENT:
+        return WF_INPUT_EVENT_PROC_MODE_NO_CLIENT;
+    }
+    assert(false);
+}
+inline constexpr wf::input_event_processing_mode_t
+unwrap_input_event_proc_mode(wf_InputEventProcessingMode mode) {
+    switch (mode) {
+    case WF_INPUT_EVENT_PROC_MODE_FULL:
+        return wf::input_event_processing_mode_t::FULL;
+    case WF_INPUT_EVENT_PROC_MODE_NO_CLIENT:
+        return wf::input_event_processing_mode_t::NO_CLIENT;
+    }
+    assert(false);
+}
+
 struct LifetimeTracker : public wf::custom_data_t {
     struct CallbackPair {
         wf_LifetimeCallback callback;
@@ -174,6 +195,22 @@ wf_Output *wf_get_signaled_output(void *sig_data) {
     return wrap_output(wf::get_signaled_output((wf::signal_data_t *)sig_data));
 }
 
+struct wlr_event_keyboard_key *
+wf_get_signaled_keyboard_key_event(void *sig_data_) {
+    const auto sig_data =
+        static_cast<wf::input_event_signal<wlr_event_keyboard_key> *>(
+            sig_data_);
+    return sig_data->event;
+}
+
+void wf_set_signaled_keyboard_key_mode(void *sig_data_,
+                                       wf_InputEventProcessingMode mode) {
+    const auto sig_data =
+        static_cast<wf::input_event_signal<wlr_event_keyboard_key> *>(
+            sig_data_);
+    sig_data->mode = unwrap_input_event_proc_mode(mode);
+}
+
 // TODO: no need for this to be a macro.
 #define WRAP_STRING_METHOD(CTYPE, METHOD, TYPE)                                \
     const char *CTYPE##_##METHOD(CTYPE *object) {                              \
@@ -244,6 +281,9 @@ wf_Core *wf_get_core() { return wrap_core(&wf::get_core()); }
 const char *wf_Core_to_string(wf_Core *core) {
     string_buf = unwrap_core(core)->to_string();
     return string_buf.c_str();
+}
+struct wlr_seat *wf_Core_get_current_seat(wf_Core *core) {
+    return unwrap_core(core)->get_current_seat();
 }
 void wf_Core_set_cursor(wf_Core *core, const char *name) {
     string_buf = name;

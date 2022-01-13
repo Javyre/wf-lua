@@ -53,6 +53,14 @@ wf.set {
     interpolation_method = 0 -- Linear interpolation
 }
 
+-- Open a terminal window on super + shift + return.
+wf.map('s-S-Return', function() wf.get_core():run 'foot' end)
+
+-- Vim/emacs-like Modal keybinds :)
+--
+-- Toggle music on 'super + n' followed by 'p'.
+wf.map('s-n p', function() wf.get_core():run 'mpc toggle' end)
+
 local function print_output(output)
     print('output:          ' .. tostring(output))
     print('output workarea: ' .. tostring(output:get_workarea()))

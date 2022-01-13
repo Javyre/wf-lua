@@ -3,7 +3,7 @@ const c = @import("c.zig");
 
 const LuaState = ?*c.lua_State;
 
-const LuaError = error{
+pub const LuaError = error{
     LoadStringFailed,
     RunStringFailed,
     LoadFileFailed,

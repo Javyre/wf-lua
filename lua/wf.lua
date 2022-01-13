@@ -248,6 +248,75 @@ function M.set(args)
     end
 end
 
+--- Map a sequence of keys to an action.
+--
+-- The keys string follows similar formatting to that of emacs.
+-- Every key is separated by whitespace, and formatted as:
+-- 
+--     (Modifier-)*Key
+-- 
+-- Modifiers are:
+--
+-- |      |                     |
+-- | -    | -                   |
+-- | `S`  | Shift               |
+-- | `M`  | Alt / Meta / Mod1   |
+-- | `C`  | Ctrl                |
+-- | `s`  | Super / Logo / Mod4 |
+-- | `c`  | Caps                |
+--
+-- |      |                     |
+-- | -    | -                   |
+-- | `M1` | Alt / Meta / Mod1   |
+-- | `M2` | Mod2                |
+-- | `M3` | Mod3                |
+-- | `M4` | Super / Logo / Mod4 |
+-- | `M5` | Mod5                |
+-- 
+-- Keys must be valid keysym names as defined in `<xkbcommon-keysyms.h>` or a
+-- Latin-1 symbol. (utf8 strings are not handled)
+--
+-- (You can use `$ xkbcli interactive-wayland` from the `xkbcommon` tools
+-- package to interactively display the keysym names as you type on the
+-- keybaord.)
+-- 
+-- Examples:
+--
+-- |           |                                                             |
+-- | ---       | --                                                          |
+-- | `C-a`     | Ctrl and a pressed at the same time.                        |
+-- | `C-S-a`   | Ctrl, Shift and a pressed at the same time.                 |
+-- | `C-a b c` | Ctrl and a pressed at the same time, then b pressed, then c |
+-- |           | pressed.                                                    |
+--
+-- @usage
+-- -- Open a terminal window on super + return.
+-- wf.map('s-Return', function() 
+--     wf.get_core():run('foot')
+-- end)
+--
+-- @usage
+-- -- Vim/emacs-like Modal keybinds :)
+-- --
+-- -- Toggle music on 'super + n' followed by 'p'.
+-- wf.map('s-n p', function() 
+--     wf.get_core():run('mpc toggle')
+-- end)
+-- @tparam ?{pop_keys:number} opts Optional options table.
+-- @tparam string keys A string representing a sequence of key presses.
+-- @tparam fn() handler The handler callback to run.
+-- @within Functions
+function M.map(opts, keys, handler)
+    -- Optional opts argument
+    if handler == nil then
+        handler = keys
+        keys = opts
+        opts = {}
+    end
+
+    wf__map_keys(keys, handler, opts.pop_keys)
+end
+
 ---A rectangle.
 -- @field x
 -- @field y

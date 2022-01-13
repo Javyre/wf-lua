@@ -2,6 +2,7 @@ const build_options = @import("build_options");
 const std = @import("std");
 const c = @import("c.zig");
 const Lua = @import("Lua.zig");
+const KeyMappings = @import("KeyMappings.zig");
 const IpcServer = @import("IpcServer.zig");
 
 const Allocator = std.mem.Allocator;
@@ -12,6 +13,10 @@ var plugin_: This = undefined;
 /// Get the plugin instance.
 pub fn getPlugin() *This {
     return &plugin_;
+}
+
+pub fn getPluginKeyMappings() *KeyMappings {
+    return &getPlugin().key_mappings;
 }
 
 // { emitter: { signal-name: connection } }
@@ -32,6 +37,7 @@ event_callback: c.wflua_EventCallback,
 /// All stored memory should be in our root allocator.
 active_connections: ActiveConnectionsMap,
 
+key_mappings: KeyMappings,
 ipc_server: IpcServer,
 
 fn lifetimeCB(emitter: ?*c_void, data: ?*c_void) callconv(.C) void {
@@ -271,6 +277,9 @@ pub fn init(self: *This, allocator: *Allocator) !void {
     try Lua.doString(L, "package.path = package.path .. ';" ++
         build_options.LUA_RUNTIME ++ "/?.lua'");
 
+    // Prepare the mappings state.
+    try self.key_mappings.init(self.allocator, self.L.?);
+
     // Run the init file.
     const init_file = try getInitFile(&arena.allocator);
     std.log.info("Running init file from: {s}", .{init_file});
@@ -283,11 +292,12 @@ pub fn init(self: *This, allocator: *Allocator) !void {
 
 /// Plugin cleanup.
 pub fn fini(self: *This) void {
+    self.ipc_server.deinit();
+    self.key_mappings.deinit();
+
     c.lua_close(self.L);
 
     self.deinitActiveConnections();
-
-    self.ipc_server.deinit();
 
     std.log.info("Goodbye.", .{});
 }

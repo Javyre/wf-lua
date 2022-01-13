@@ -49,6 +49,16 @@ wf_View *wf_get_signaled_view(void *sig_data);
 typedef struct wf_Output wf_Output;
 wf_Output *wf_get_signaled_output(void *sig_data);
 
+typedef enum {
+    WF_INPUT_EVENT_PROC_MODE_FULL,
+    WF_INPUT_EVENT_PROC_MODE_NO_CLIENT,
+} wf_InputEventProcessingMode;
+
+struct wlr_event_keyboard_key *
+wf_get_signaled_keyboard_key_event(void *sig_data);
+void wf_set_signaled_keyboard_key_mode(void *sig_data,
+                                       wf_InputEventProcessingMode mode);
+
 const char *wf_View_to_string(wf_View *view);
 const char *wf_View_get_title(wf_View *view);
 const char *wf_View_get_app_id(wf_View *view);
@@ -77,6 +87,7 @@ typedef struct wf_Core wf_Core;
 wf_Core *wf_get_core();
 
 const char *wf_Core_to_string(wf_Core *core);
+struct wlr_seat *wf_Core_get_current_seat(wf_Core *core);
 void wf_Core_set_cursor(wf_Core *core, const char *name);
 void wf_Core_unhide_cursor(wf_Core *core);
 void wf_Core_hide_cursor(wf_Core *core);
