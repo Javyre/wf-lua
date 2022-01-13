@@ -290,6 +290,75 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
     <span class="keyword">end</span>
 <span class="keyword">end</span>
 
+<span class="comment">--- Map a sequence of keys to an action.
+</span><span class="comment">--
+</span><span class="comment">-- The keys string follows similar formatting to that of emacs.
+</span><span class="comment">-- Every key is separated by whitespace, and formatted as:
+</span><span class="comment">--
+</span><span class="comment">--     (Modifier-)*Key
+</span><span class="comment">--
+</span><span class="comment">-- Modifiers are:
+</span><span class="comment">--
+</span><span class="comment">-- |      |                     |
+</span><span class="comment">-- | -    | -                   |
+</span><span class="comment">-- | <code>S</code>  | Shift               |
+</span><span class="comment">-- | <code>M</code>  | Alt / Meta / Mod1   |
+</span><span class="comment">-- | <code>C</code>  | Ctrl                |
+</span><span class="comment">-- | <code>s</code>  | Super / Logo / Mod4 |
+</span><span class="comment">-- | <code>c</code>  | Caps                |
+</span><span class="comment">--
+</span><span class="comment">-- |      |                     |
+</span><span class="comment">-- | -    | -                   |
+</span><span class="comment">-- | <code>M1</code> | Alt / Meta / Mod1   |
+</span><span class="comment">-- | <code>M2</code> | Mod2                |
+</span><span class="comment">-- | <code>M3</code> | Mod3                |
+</span><span class="comment">-- | <code>M4</code> | Super / Logo / Mod4 |
+</span><span class="comment">-- | <code>M5</code> | Mod5                |
+</span><span class="comment">--
+</span><span class="comment">-- Keys must be valid keysym names as defined in <code>&amp;lt;xkbcommon-keysyms.h&amp;gt;</code> or a
+</span><span class="comment">-- Latin-1 symbol. (utf8 strings are not handled)
+</span><span class="comment">--
+</span><span class="comment">-- (You can use <code>$ xkbcli interactive-wayland</code> from the <code>xkbcommon</code> tools
+</span><span class="comment">-- package to interactively display the keysym names as you type on the
+</span><span class="comment">-- keybaord.)
+</span><span class="comment">--
+</span><span class="comment">-- Examples:
+</span><span class="comment">--
+</span><span class="comment">-- |           |                                                             |
+</span><span class="comment">-- | ---       | --                                                          |
+</span><span class="comment">-- | <code>C-a</code>     | Ctrl and a pressed at the same time.                        |
+</span><span class="comment">-- | <code>C-S-a</code>   | Ctrl, Shift and a pressed at the same time.                 |
+</span><span class="comment">-- | <code>C-a b c</code> | Ctrl and a pressed at the same time, then b pressed, then c |
+</span><span class="comment">-- |           | pressed.                                                    |
+</span><span class="comment">--
+</span><span class="comment">-- @usage
+</span><span class="comment">-- -- Open a terminal window on super + return.
+</span><span class="comment">-- wf.map('s-Return', function()
+</span><span class="comment">--     wf.get_core():run('foot')
+</span><span class="comment">-- end)
+</span><span class="comment">--
+</span><span class="comment">-- @usage
+</span><span class="comment">-- -- Vim/emacs-like Modal keybinds :)
+</span><span class="comment">-- --
+</span><span class="comment">-- -- Toggle music on 'super + n' followed by 'p'.
+</span><span class="comment">-- wf.map('s-n p', function()
+</span><span class="comment">--     wf.get_core():run('mpc toggle')
+</span><span class="comment">-- end)
+</span><span class="comment">-- @tparam ?{pop_keys:number} opts Optional options table.
+</span><span class="comment">-- @tparam string keys A string representing a sequence of key presses.
+</span><span class="comment">-- @tparam fn() handler The handler callback to run.
+</span><span class="comment">-- @within Functions
+</span><span class="keyword">function</span> M.map(opts, keys, handler)<a id="309"></a>
+    <span class="comment">-- Optional opts argument
+</span>    <span class="keyword">if</span> handler == <span class="keyword">nil</span> <span class="keyword">then</span>
+        handler = keys
+        keys = opts
+        opts = {}
+    <span class="keyword">end</span>
+
+    wf__map_keys(keys, handler, opts.pop_keys)
+<span class="keyword">end</span>
+
 <span class="comment">---A rectangle.
 </span><span class="comment">-- @field x
 </span><span class="comment">-- @field y
@@ -384,7 +453,7 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
         <span class="comment">--- Set the cursor to the given name from the cursor theme.
 </span>        <span class="comment">-- @tparam Core self the wayfire instance.
 </span>        <span class="comment">-- @tparam string name the cursor name.
-</span>        set_cursor = <span class="keyword">function</span>(self, name)<a id="345"></a>
+</span>        set_cursor = <span class="keyword">function</span>(self, name)<a id="414"></a>
             ffi.C.wf_Core_set_cursor(self, name)
         <span class="keyword">end</span>,
 
@@ -1116,7 +1185,7 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
 </div> <!-- id="main" -->
 <div id="about">
 <i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
-<i style="float:right;">Last updated 2021-12-26 19:25:54 </i>
+<i style="float:right;">Last updated 2022-01-13 02:34:15 </i>
 </div> <!-- id="about" -->
 </div> <!-- id="container" -->
 </body>
