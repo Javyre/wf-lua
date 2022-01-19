@@ -89,6 +89,27 @@ unwrap_input_event_proc_mode(wf_InputEventProcessingMode mode) {
     assert(false);
 }
 
+inline constexpr wf::activator_source_t
+unwrap_activator_source(wf_ActivatorSource source) {
+    switch (source) {
+    case WF_ACTIVATOR_SOURCE_KEYBINDING:
+        return wf::activator_source_t::KEYBINDING;
+    case WF_ACTIVATOR_SOURCE_MODIFIERBINDING:
+        return wf::activator_source_t::MODIFIERBINDING;
+    case WF_ACTIVATOR_SOURCE_BUTTONBINDING:
+        return wf::activator_source_t::BUTTONBINDING;
+    case WF_ACTIVATOR_SOURCE_GESTURE:
+        return wf::activator_source_t::GESTURE;
+    case WF_ACTIVATOR_SOURCE_HOTSPOT:
+        return wf::activator_source_t::HOTSPOT;
+    case WF_ACTIVATOR_SOURCE_PLUGIN:
+        return wf::activator_source_t::PLUGIN;
+    case WF_ACTIVATOR_SOURCE_PLUGIN_WITH_DATA:
+        return wf::activator_source_t::PLUGIN_WITH_DATA;
+    }
+    assert(false);
+}
+
 struct LifetimeTracker : public wf::custom_data_t {
     struct CallbackPair {
         wf_LifetimeCallback callback;
@@ -256,6 +277,16 @@ void wf_Output_ensure_pointer(wf_Output *output, bool center) {
 }
 wf_Pointf wf_Output_get_cursor_position(wf_Output *output) {
     return wrap_pointf(unwrap_output(output)->get_cursor_position());
+}
+bool wf_Output_call_plugin_plain(wf_Output *output, const char *activator,
+                                 wf_PlainActivatorData activator_data_) {
+    string_buf = activator;
+
+    wf::activator_data_t activator_data;
+    activator_data.source = unwrap_activator_source(activator_data_.source);
+    activator_data.activation_data = activator_data_.activation_data;
+
+    return unwrap_output(output)->call_plugin(string_buf, activator_data);
 }
 wf_View *wf_Output_get_top_view(wf_Output *output) {
     return wrap_view(unwrap_output(output)->get_top_view());

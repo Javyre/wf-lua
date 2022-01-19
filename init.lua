@@ -59,7 +59,18 @@ wf.map('s-S-Return', function() wf.get_core():run 'foot' end)
 -- Vim/emacs-like Modal keybinds :)
 --
 -- Toggle music on 'super + n' followed by 'p'.
-wf.map('s-n p', function() wf.get_core():run 'mpc toggle' end)
+wf.map('s-N p', function() wf.get_core():run 'mpc toggle' end)
+
+local function _call_plugin(activator)
+    return function()
+        wf.get_core():get_active_output():call_plugin(activator)
+    end
+end
+
+wf.map('s-N h', _call_plugin 'vswitch/binding_left')
+wf.map('s-N j', _call_plugin 'vswitch/binding_down')
+wf.map('s-N k', _call_plugin 'vswitch/binding_up')
+wf.map('s-N l', _call_plugin 'vswitch/binding_right')
 
 local function print_output(output)
     print('output:          ' .. tostring(output))

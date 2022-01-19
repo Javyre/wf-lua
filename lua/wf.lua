@@ -828,6 +828,26 @@ ffi.metatype("wf_Output", {
             return ffi.C.wf_Output_get_cursor_position(self)
         end,
 
+        --- Invoke a plugin's activator.
+        --
+        -- You can check for the name of an activator by looking at a plugin's
+        -- metadata xml file and looking for options of type "activator". The
+        -- actual activator name is prefixed with the name of the plugin
+        -- followed by a forward slash.
+        --
+        -- @usage
+        -- wf_core:get_active_output():call_plugin('vswitch/binding_left')
+        -- @tparam Output self the output.
+        -- @tparam string activator the name of the activator.
+        -- @treturn bool whether the activator was invoked.
+        call_plugin = function(self, activator)
+            local data = ffi.new('wf_PlainActivatorData', {
+                source = ffi.C.WF_ACTIVATOR_SOURCE_PLUGIN,
+                activation_data = 0
+            })
+            return ffi.C.wf_Output_call_plugin_plain(self, activator, data)
+        end,
+
         --- Get the view at the top of the workspace layer.
         -- @tparam Output self the output.
         -- @treturn View the view at the top of the workspace layer.

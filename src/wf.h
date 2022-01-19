@@ -68,14 +68,28 @@ wf_Geometry wf_View_get_bounding_box(wf_View *view);
 wf_Output *wf_View_get_output(wf_View *view);
 void wf_View_set_geometry(wf_View *view, wf_Geometry geo);
 
+typedef enum {
+    WF_ACTIVATOR_SOURCE_KEYBINDING,
+    WF_ACTIVATOR_SOURCE_MODIFIERBINDING,
+    WF_ACTIVATOR_SOURCE_BUTTONBINDING,
+    WF_ACTIVATOR_SOURCE_GESTURE,
+    WF_ACTIVATOR_SOURCE_HOTSPOT,
+    WF_ACTIVATOR_SOURCE_PLUGIN,
+    WF_ACTIVATOR_SOURCE_PLUGIN_WITH_DATA,
+} wf_ActivatorSource;
+typedef struct {
+    wf_ActivatorSource source;
+    unsigned int activation_data;
+} wf_PlainActivatorData;
+
 const char *wf_Output_to_string(wf_Output *output);
 wf_Dimensions wf_Output_get_screen_size(wf_Output *output);
 wf_Geometry wf_Output_get_relative_geometry(wf_Output *output);
 wf_Geometry wf_Output_get_layout_geometry(wf_Output *output);
 void wf_Output_ensure_pointer(wf_Output *output, _Bool center);
 wf_Pointf wf_Output_get_cursor_position(wf_Output *output);
-// TODO: make binding for call_plugin(). This would unlock a lot of wflua
-// usecases. (e.g. activate expo from a lua script).
+_Bool wf_Output_call_plugin_plain(wf_Output *output, const char *activator,
+                                  wf_PlainActivatorData data);
 wf_View *wf_Output_get_top_view(wf_Output *output);
 wf_View *wf_Output_get_active_view(wf_Output *output);
 void wf_Output_focus_view(wf_Output *output, wf_View *v, _Bool raise);
