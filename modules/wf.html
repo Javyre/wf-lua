@@ -68,6 +68,8 @@
 	<div class="summary">Hook into a signal on all outputs.</div>
 	<div class="name"><a href="#outputs:unhook">outputs:unhook (signal, handler)</a></div>
 	<div class="summary">Unhook from a signal on all outputs.</div>
+	<div class="name"><a href="#reload_init">reload_init ()</a></div>
+	<div class="summary">Reload the lua init file.</div>
 </div>
 <br>
 <h2><a href="#Class_Core">Class Core </a></h2>
@@ -144,6 +146,8 @@
 	<div class="summary">Ensure the pointer is on this output.</div>
 	<div class="name"><a href="#Output:get_cursor_position">Output:get_cursor_position (self)</a></div>
 	<div class="summary">Get the cursor position relative to the output.</div>
+	<div class="name"><a href="#Output:call_plugin">Output:call_plugin (self, activator)</a></div>
+	<div class="summary">Invoke a plugin's activator.</div>
 	<div class="name"><a href="#Output:get_top_view">Output:get_top_view (self)</a></div>
 	<div class="summary">Get the view at the top of the workspace layer.</div>
 	<div class="name"><a href="#Output:get_active_view">Output:get_active_view (self)</a></div>
@@ -193,7 +197,7 @@
     <dt>
     <a name = "set"></a>
     <pre class="signature"><span class="keyword">function</span> set(args: <span class="backtick"><code>{section,option=value,...}</code></span>)</pre>
-    <a style="float:right;" href="../source/wf.lua.html#239">line 239</a>
+    <a style="float:right;" href="../source/wf.lua.html#258">line 258</a>
     </dt>
     <dd>
     Set option values in a given section. </p>
@@ -214,8 +218,8 @@
 </dd>
     <dt>
     <a name = "map"></a>
-    <pre class="signature"><span class="keyword">function</span> map(opts: <span class="backtick"><code>?{pop_keys:number}</code></span>, keys: <span class="backtick"><a href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>, handler: <span class="backtick"><code>fn()</code></span>)</pre>
-    <a style="float:right;" href="../source/wf.lua.html#309">line 309</a>
+    <pre class="signature"><span class="keyword">function</span> map(opts: <span class="backtick"><code>?{pop_keys:number}</code></span>, keys: <span class="backtick"><a href="https://www.lua.org/manual/5.4/manual.html#6.4">string</a></span>, handler: <span class="backtick"><code>fn()</code></span>)</pre>
+    <a style="float:right;" href="../source/wf.lua.html#328">line 328</a>
     </dt>
     <dd>
     Map a sequence of keys to an action. </p>
@@ -275,8 +279,8 @@
 </dd>
     <dt>
     <a name = "outputs:hook"></a>
-    <pre class="signature"><span class="keyword">function</span> outputs:hook(signal: <span class="backtick"><a href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>, handler: <span class="backtick"><code>fn(output,data)</code></span>): <span class="backtick"><code>fn(output,data)</code></span></pre>
-    <a style="float:right;" href="../source/wf.lua.html#1101">line 1101</a>
+    <pre class="signature"><span class="keyword">function</span> outputs:hook(signal: <span class="backtick"><a href="https://www.lua.org/manual/5.4/manual.html#6.4">string</a></span>, handler: <span class="backtick"><code>fn(output,data)</code></span>): <span class="backtick"><code>fn(output,data)</code></span></pre>
+    <a style="float:right;" href="../source/wf.lua.html#1140">line 1140</a>
     </dt>
     <dd>
     Hook into a signal on all outputs. </p>
@@ -301,8 +305,8 @@ wf.outputs:hook(<span class="string">'view-focused'</span>, <span class="keyword
 </dd>
     <dt>
     <a name = "outputs:unhook"></a>
-    <pre class="signature"><span class="keyword">function</span> outputs:unhook(signal: <span class="backtick"><a href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>, handler: <span class="backtick"><code>fn(output,data)</code></span>)</pre>
-    <a style="float:right;" href="../source/wf.lua.html#1129">line 1129</a>
+    <pre class="signature"><span class="keyword">function</span> outputs:unhook(signal: <span class="backtick"><a href="https://www.lua.org/manual/5.4/manual.html#6.4">string</a></span>, handler: <span class="backtick"><code>fn(output,data)</code></span>)</pre>
+    <a style="float:right;" href="../source/wf.lua.html#1168">line 1168</a>
     </dt>
     <dd>
     Unhook from a signal on all outputs. </p>
@@ -318,6 +322,19 @@ wf.outputs:hook(<span class="string">'view-mapped'</span>, handler)
 wf.outputs:hook(<span class="string">'view-focused'</span>, handler)
 wf.outputs:unhook(<span class="string">'view-mapped'</span>, handler)
 wf.outputs:unhook(<span class="string">'view-focused'</span>, handler)</pre></li>
+    </ul>
+</dd>
+    <dt>
+    <a name = "reload_init"></a>
+    <pre class="signature"><span class="keyword">function</span> reload_init()</pre>
+    <a style="float:right;" href="../source/wf.lua.html#1193">line 1193</a>
+    </dt>
+    <dd>
+    Reload the lua init file.
+    <h3>Usage:</h3>
+    <ul class="examples">
+        <pre class="example"><span class="comment">-- Reload init on when super + shift + r is pressed.
+</span>wf.map(<span class="string">'s-R'</span>, wf.reload_init)</pre>
     </ul>
 </dd>
 </dl>
@@ -338,8 +355,8 @@ wf.outputs:unhook(<span class="string">'view-focused'</span>, handler)</pre></li
     <dl class="function">
     <dt>
     <a name = "Core:set_cursor"></a>
-    <pre class="signature"><span class="keyword">function</span> Core:set_cursor(name: <span class="backtick"><a href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>)</pre>
-    <a style="float:right;" href="../source/wf.lua.html#414">line 414</a>
+    <pre class="signature"><span class="keyword">function</span> Core:set_cursor(name: <span class="backtick"><a href="https://www.lua.org/manual/5.4/manual.html#6.4">string</a></span>)</pre>
+    <a style="float:right;" href="../source/wf.lua.html#433">line 433</a>
     </dt>
     <dd>
     Set the cursor to the given name from the cursor theme.
@@ -347,7 +364,7 @@ wf.outputs:unhook(<span class="string">'view-focused'</span>, handler)</pre></li
     <dt>
     <a name = "Core:hide_cursor"></a>
     <pre class="signature"><span class="keyword">function</span> Core:hide_cursor()</pre>
-    <a style="float:right;" href="../source/wf.lua.html#423">line 423</a>
+    <a style="float:right;" href="../source/wf.lua.html#442">line 442</a>
     </dt>
     <dd>
     Request to hide the cursor. </p>
@@ -358,7 +375,7 @@ wf.outputs:unhook(<span class="string">'view-focused'</span>, handler)</pre></li
     <dt>
     <a name = "Core:unhide_cursor"></a>
     <pre class="signature"><span class="keyword">function</span> Core:unhide_cursor()</pre>
-    <a style="float:right;" href="../source/wf.lua.html#430">line 430</a>
+    <a style="float:right;" href="../source/wf.lua.html#449">line 449</a>
     </dt>
     <dd>
     Request to unhide the cursor. </p>
@@ -369,7 +386,7 @@ wf.outputs:unhook(<span class="string">'view-focused'</span>, handler)</pre></li
     <dt>
     <a name = "Core:warp_cursor"></a>
     <pre class="signature"><span class="keyword">function</span> Core:warp_cursor(position: <span class="backtick"><a href="../modules/wf.html#Pointf">Pointf</a></span>)</pre>
-    <a style="float:right;" href="../source/wf.lua.html#437">line 437</a>
+    <a style="float:right;" href="../source/wf.lua.html#456">line 456</a>
     </dt>
     <dd>
     Move the cursor to the given point. </p>
@@ -379,7 +396,7 @@ wf.outputs:unhook(<span class="string">'view-focused'</span>, handler)</pre></li
     <dt>
     <a name = "Core:get_cursor_position"></a>
     <pre class="signature"><span class="keyword">function</span> Core:get_cursor_position(): <span class="backtick"><a href="../modules/wf.html#Pointf">Pointf</a></span></pre>
-    <a style="float:right;" href="../source/wf.lua.html#445">line 445</a>
+    <a style="float:right;" href="../source/wf.lua.html#464">line 464</a>
     </dt>
     <dd>
     Get the cursor position in global coordinates.
@@ -387,7 +404,7 @@ wf.outputs:unhook(<span class="string">'view-focused'</span>, handler)</pre></li
     <dt>
     <a name = "Core:get_cursor_focus_view"></a>
     <pre class="signature"><span class="keyword">function</span> Core:get_cursor_focus_view(): <span class="backtick"><a href="../modules/wf.html#View">View</a></span></pre>
-    <a style="float:right;" href="../source/wf.lua.html#453">line 453</a>
+    <a style="float:right;" href="../source/wf.lua.html#472">line 472</a>
     </dt>
     <dd>
     Get the view that currently has cursor focus.
@@ -395,7 +412,7 @@ wf.outputs:unhook(<span class="string">'view-focused'</span>, handler)</pre></li
     <dt>
     <a name = "Core:get_touch_focus_view"></a>
     <pre class="signature"><span class="keyword">function</span> Core:get_touch_focus_view(): <span class="backtick"><a href="../modules/wf.html#View">View</a></span></pre>
-    <a style="float:right;" href="../source/wf.lua.html#461">line 461</a>
+    <a style="float:right;" href="../source/wf.lua.html#480">line 480</a>
     </dt>
     <dd>
     Get the view that currently has touch focus.
@@ -403,7 +420,7 @@ wf.outputs:unhook(<span class="string">'view-focused'</span>, handler)</pre></li
     <dt>
     <a name = "Core:get_view_at"></a>
     <pre class="signature"><span class="keyword">function</span> Core:get_view_at(point: <span class="backtick"><a href="../modules/wf.html#Pointf">Pointf</a></span>): <span class="backtick"><code>?View</code></span></pre>
-    <a style="float:right;" href="../source/wf.lua.html#472">line 472</a>
+    <a style="float:right;" href="../source/wf.lua.html#491">line 491</a>
     </dt>
     <dd>
     Get the view at the given point. </p>
@@ -414,7 +431,7 @@ wf.outputs:unhook(<span class="string">'view-focused'</span>, handler)</pre></li
     <dt>
     <a name = "Core:set_active_view"></a>
     <pre class="signature"><span class="keyword">function</span> Core:set_active_view(view: <span class="backtick"><a href="../modules/wf.html#View">View</a></span>)</pre>
-    <a style="float:right;" href="../source/wf.lua.html#480">line 480</a>
+    <a style="float:right;" href="../source/wf.lua.html#499">line 499</a>
     </dt>
     <dd>
     Give a view keyboard focus.
@@ -422,7 +439,7 @@ wf.outputs:unhook(<span class="string">'view-focused'</span>, handler)</pre></li
     <dt>
     <a name = "Core:focus_view"></a>
     <pre class="signature"><span class="keyword">function</span> Core:focus_view(view: <span class="backtick"><a href="../modules/wf.html#View">View</a></span>)</pre>
-    <a style="float:right;" href="../source/wf.lua.html#489">line 489</a>
+    <a style="float:right;" href="../source/wf.lua.html#508">line 508</a>
     </dt>
     <dd>
     Focus the given view and it's output. </p>
@@ -432,7 +449,7 @@ wf.outputs:unhook(<span class="string">'view-focused'</span>, handler)</pre></li
     <dt>
     <a name = "Core:focus_output"></a>
     <pre class="signature"><span class="keyword">function</span> Core:focus_output(output: <span class="backtick"><a href="../modules/wf.html#Output">Output</a></span>)</pre>
-    <a style="float:right;" href="../source/wf.lua.html#497">line 497</a>
+    <a style="float:right;" href="../source/wf.lua.html#516">line 516</a>
     </dt>
     <dd>
     Focus the given output.
@@ -440,7 +457,7 @@ wf.outputs:unhook(<span class="string">'view-focused'</span>, handler)</pre></li
     <dt>
     <a name = "Core:get_active_output"></a>
     <pre class="signature"><span class="keyword">function</span> Core:get_active_output(): <span class="backtick"><a href="../modules/wf.html#Output">Output</a></span></pre>
-    <a style="float:right;" href="../source/wf.lua.html#505">line 505</a>
+    <a style="float:right;" href="../source/wf.lua.html#524">line 524</a>
     </dt>
     <dd>
     Get the currently focused output.
@@ -448,7 +465,7 @@ wf.outputs:unhook(<span class="string">'view-focused'</span>, handler)</pre></li
     <dt>
     <a name = "Core:move_view_to_output"></a>
     <pre class="signature"><span class="keyword">function</span> Core:move_view_to_output(view: <span class="backtick"><a href="../modules/wf.html#View">View</a></span>, new_output: <span class="backtick"><a href="../modules/wf.html#Output">Output</a></span>, reconf: <span class="backtick"><code>bool</code></span>)</pre>
-    <a style="float:right;" href="../source/wf.lua.html#518">line 518</a>
+    <a style="float:right;" href="../source/wf.lua.html#537">line 537</a>
     </dt>
     <dd>
     Move the given view to the output. </p>
@@ -458,24 +475,24 @@ wf.outputs:unhook(<span class="string">'view-focused'</span>, handler)</pre></li
 </dd>
     <dt>
     <a name = "Core:get_wayland_display"></a>
-    <pre class="signature"><span class="keyword">function</span> Core:get_wayland_display(): <span class="backtick"><a href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span></pre>
-    <a style="float:right;" href="../source/wf.lua.html#528">line 528</a>
+    <pre class="signature"><span class="keyword">function</span> Core:get_wayland_display(): <span class="backtick"><a href="https://www.lua.org/manual/5.4/manual.html#6.4">string</a></span></pre>
+    <a style="float:right;" href="../source/wf.lua.html#547">line 547</a>
     </dt>
     <dd>
     Get the Wayland socket name of the current Wayland session.
 </dd>
     <dt>
     <a name = "Core:get_xwayland_display"></a>
-    <pre class="signature"><span class="keyword">function</span> Core:get_xwayland_display(): <span class="backtick"><a href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span></pre>
-    <a style="float:right;" href="../source/wf.lua.html#536">line 536</a>
+    <pre class="signature"><span class="keyword">function</span> Core:get_xwayland_display(): <span class="backtick"><a href="https://www.lua.org/manual/5.4/manual.html#6.4">string</a></span></pre>
+    <a style="float:right;" href="../source/wf.lua.html#555">line 555</a>
     </dt>
     <dd>
     Get the XWayland display name.
 </dd>
     <dt>
     <a name = "Core:run"></a>
-    <pre class="signature"><span class="keyword">function</span> Core:run(command: <span class="backtick"><a href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>): <span class="backtick"><code>int</code></span></pre>
-    <a style="float:right;" href="../source/wf.lua.html#549">line 549</a>
+    <pre class="signature"><span class="keyword">function</span> Core:run(command: <span class="backtick"><a href="https://www.lua.org/manual/5.4/manual.html#6.4">string</a></span>): <span class="backtick"><code>int</code></span></pre>
+    <a style="float:right;" href="../source/wf.lua.html#568">line 568</a>
     </dt>
     <dd>
     Run a command with the system POSIX shell. </p>
@@ -487,7 +504,7 @@ wf.outputs:unhook(<span class="string">'view-focused'</span>, handler)</pre></li
     <dt>
     <a name = "Core:shutdown"></a>
     <pre class="signature"><span class="keyword">function</span> Core:shutdown()</pre>
-    <a style="float:right;" href="../source/wf.lua.html#554">line 554</a>
+    <a style="float:right;" href="../source/wf.lua.html#573">line 573</a>
     </dt>
     <dd>
     Shutdown the whole Wayfire process.
@@ -495,15 +512,15 @@ wf.outputs:unhook(<span class="string">'view-focused'</span>, handler)</pre></li
     <dt>
     <a name = "Core:get_output_layout"></a>
     <pre class="signature"><span class="keyword">function</span> Core:get_output_layout(): <span class="backtick"><a href="../modules/wf.html#OutputLayout">OutputLayout</a></span></pre>
-    <a style="float:right;" href="../source/wf.lua.html#561">line 561</a>
+    <a style="float:right;" href="../source/wf.lua.html#580">line 580</a>
     </dt>
     <dd>
     Get the OutputLayout object representing the layout of the outputs.
 </dd>
     <dt>
     <a name = "Core:hook"></a>
-    <pre class="signature"><span class="keyword">function</span> Core:hook(signal: <span class="backtick"><a href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>, handler: <span class="backtick"><code>fn(core,data)</code></span>): <span class="backtick"><code>fn(core,data)</code></span></pre>
-    <a style="float:right;" href="../source/wf.lua.html#599">line 599</a>
+    <pre class="signature"><span class="keyword">function</span> Core:hook(signal: <span class="backtick"><a href="https://www.lua.org/manual/5.4/manual.html#6.4">string</a></span>, handler: <span class="backtick"><code>fn(core,data)</code></span>): <span class="backtick"><code>fn(core,data)</code></span></pre>
+    <a style="float:right;" href="../source/wf.lua.html#618">line 618</a>
     </dt>
     <dd>
     Hook into a signal on the Wayfire instance. </p>
@@ -538,8 +555,8 @@ wf.outputs:unhook(<span class="string">'view-focused'</span>, handler)</pre></li
 </dd>
     <dt>
     <a name = "Core:unhook"></a>
-    <pre class="signature"><span class="keyword">function</span> Core:unhook(signal: <span class="backtick"><a href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>, handler: <span class="backtick"><code>fn(core,data)</code></span>)</pre>
-    <a style="float:right;" href="../source/wf.lua.html#629">line 629</a>
+    <pre class="signature"><span class="keyword">function</span> Core:unhook(signal: <span class="backtick"><a href="https://www.lua.org/manual/5.4/manual.html#6.4">string</a></span>, handler: <span class="backtick"><code>fn(core,data)</code></span>)</pre>
+    <a style="float:right;" href="../source/wf.lua.html#648">line 648</a>
     </dt>
     <dd>
     Unhook from a signal on the Wayfire instance. </p>
@@ -580,7 +597,7 @@ output_layout:hook(<span class="string">"output-added"</span>, <span class="keyw
     <dt>
     <a name = "OutputLayout:get_output_at"></a>
     <pre class="signature"><span class="keyword">function</span> OutputLayout:get_output_at(x: <span class="backtick"><code>number</code></span>, y: <span class="backtick"><code>number</code></span>): <span class="backtick"><a href="../modules/wf.html#Output">Output</a></span></pre>
-    <a style="float:right;" href="../source/wf.lua.html#659">line 659</a>
+    <a style="float:right;" href="../source/wf.lua.html#678">line 678</a>
     </dt>
     <dd>
     Get the output at the given coordinates. </p>
@@ -590,7 +607,7 @@ output_layout:hook(<span class="string">"output-added"</span>, <span class="keyw
     <dt>
     <a name = "OutputLayout:get_output_coords_at"></a>
     <pre class="signature"><span class="keyword">function</span> OutputLayout:get_output_coords_at(origin: <span class="backtick"><a href="../modules/wf.html#Pointf">Pointf</a></span>): <span class="backtick"><a href="../modules/wf.html#Output">Output</a></span>, <span class="backtick"><a href="../modules/wf.html#Pointf">Pointf</a></span></pre>
-    <a style="float:right;" href="../source/wf.lua.html#673">line 673</a>
+    <a style="float:right;" href="../source/wf.lua.html#692">line 692</a>
     </dt>
     <dd>
     Get the output at the given coordinates and the closest point on it. </p>
@@ -601,7 +618,7 @@ output_layout:hook(<span class="string">"output-added"</span>, <span class="keyw
     <dt>
     <a name = "OutputLayout:get_num_outputs"></a>
     <pre class="signature"><span class="keyword">function</span> OutputLayout:get_num_outputs(): <span class="backtick"><code>number</code></span></pre>
-    <a style="float:right;" href="../source/wf.lua.html#685">line 685</a>
+    <a style="float:right;" href="../source/wf.lua.html#704">line 704</a>
     </dt>
     <dd>
     Get the number of current outputs.
@@ -609,7 +626,7 @@ output_layout:hook(<span class="string">"output-added"</span>, <span class="keyw
     <dt>
     <a name = "OutputLayout:get_next_output"></a>
     <pre class="signature"><span class="keyword">function</span> OutputLayout:get_next_output(prev: <span class="backtick"><a href="../modules/wf.html#Output">Output</a></span>): <span class="backtick"><a href="../modules/wf.html#Output">Output</a></span></pre>
-    <a style="float:right;" href="../source/wf.lua.html#704">line 704</a>
+    <a style="float:right;" href="../source/wf.lua.html#723">line 723</a>
     </dt>
     <dd>
     Iterate through the current outputs. </p>
@@ -630,8 +647,8 @@ output_layout:hook(<span class="string">"output-added"</span>, <span class="keyw
 </dd>
     <dt>
     <a name = "OutputLayout:find_output"></a>
-    <pre class="signature"><span class="keyword">function</span> OutputLayout:find_output(name: <span class="backtick"><a href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>): <span class="backtick"><a href="../modules/wf.html#Output">Output</a></span></pre>
-    <a style="float:right;" href="../source/wf.lua.html#713">line 713</a>
+    <pre class="signature"><span class="keyword">function</span> OutputLayout:find_output(name: <span class="backtick"><a href="https://www.lua.org/manual/5.4/manual.html#6.4">string</a></span>): <span class="backtick"><a href="../modules/wf.html#Output">Output</a></span></pre>
+    <a style="float:right;" href="../source/wf.lua.html#732">line 732</a>
     </dt>
     <dd>
     Get an output by name.
@@ -639,8 +656,8 @@ output_layout:hook(<span class="string">"output-added"</span>, <span class="keyw
 </dd>
     <dt>
     <a name = "OutputLayout:hook"></a>
-    <pre class="signature"><span class="keyword">function</span> OutputLayout:hook(signal: <span class="backtick"><a href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>, handler: <span class="backtick"><code>fn(layout,data)</code></span>): <span class="backtick"><code>fn(layout,data)</code></span></pre>
-    <a style="float:right;" href="../source/wf.lua.html#738">line 738</a>
+    <pre class="signature"><span class="keyword">function</span> OutputLayout:hook(signal: <span class="backtick"><a href="https://www.lua.org/manual/5.4/manual.html#6.4">string</a></span>, handler: <span class="backtick"><code>fn(layout,data)</code></span>): <span class="backtick"><code>fn(layout,data)</code></span></pre>
+    <a style="float:right;" href="../source/wf.lua.html#757">line 757</a>
     </dt>
     <dd>
     Hook into a signal on the output layout. </p>
@@ -659,8 +676,8 @@ layout:hook(<span class="string">'output-added'</span>, <span class="keyword">fu
 </dd>
     <dt>
     <a name = "OutputLayout:unhook"></a>
-    <pre class="signature"><span class="keyword">function</span> OutputLayout:unhook(signal: <span class="backtick"><a href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>, handler: <span class="backtick"><code>fn(layout,data)</code></span>)</pre>
-    <a style="float:right;" href="../source/wf.lua.html#769">line 769</a>
+    <pre class="signature"><span class="keyword">function</span> OutputLayout:unhook(signal: <span class="backtick"><a href="https://www.lua.org/manual/5.4/manual.html#6.4">string</a></span>, handler: <span class="backtick"><code>fn(layout,data)</code></span>)</pre>
+    <a style="float:right;" href="../source/wf.lua.html#788">line 788</a>
     </dt>
     <dd>
     Unhook from a signal on the output layout. </p>
@@ -699,7 +716,7 @@ output:focus_view(view)</pre>
     <dt>
     <a name = "Output:get_screen_size"></a>
     <pre class="signature"><span class="keyword">function</span> Output:get_screen_size(): <span class="backtick"><a href="../modules/wf.html#Dimensions">Dimensions</a></span></pre>
-    <a style="float:right;" href="../source/wf.lua.html#791">line 791</a>
+    <a style="float:right;" href="../source/wf.lua.html#810">line 810</a>
     </dt>
     <dd>
     Get the screen size of this output.
@@ -707,7 +724,7 @@ output:focus_view(view)</pre>
     <dt>
     <a name = "Output:get_relative_geometry"></a>
     <pre class="signature"><span class="keyword">function</span> Output:get_relative_geometry(): <span class="backtick"><a href="../modules/wf.html#Geometry">Geometry</a></span></pre>
-    <a style="float:right;" href="../source/wf.lua.html#799">line 799</a>
+    <a style="float:right;" href="../source/wf.lua.html#818">line 818</a>
     </dt>
     <dd>
     Get the screen size of this output as a Geometry.
@@ -716,7 +733,7 @@ output:focus_view(view)</pre>
     <dt>
     <a name = "Output:get_layout_geometry"></a>
     <pre class="signature"><span class="keyword">function</span> Output:get_layout_geometry(): <span class="backtick"><a href="../modules/wf.html#Geometry">Geometry</a></span></pre>
-    <a style="float:right;" href="../source/wf.lua.html#808">line 808</a>
+    <a style="float:right;" href="../source/wf.lua.html#827">line 827</a>
     </dt>
     <dd>
     Get the geometry of the screen.
@@ -726,7 +743,7 @@ output:focus_view(view)</pre>
     <dt>
     <a name = "Output:ensure_pointer"></a>
     <pre class="signature"><span class="keyword">function</span> Output:ensure_pointer(center: <span class="backtick"><code>bool</code></span>)</pre>
-    <a style="float:right;" href="../source/wf.lua.html#819">line 819</a>
+    <a style="float:right;" href="../source/wf.lua.html#838">line 838</a>
     </dt>
     <dd>
     Ensure the pointer is on this output.
@@ -738,15 +755,32 @@ output:focus_view(view)</pre>
     <dt>
     <a name = "Output:get_cursor_position"></a>
     <pre class="signature"><span class="keyword">function</span> Output:get_cursor_position(): <span class="backtick"><a href="../modules/wf.html#Geometry">Geometry</a></span></pre>
-    <a style="float:right;" href="../source/wf.lua.html#827">line 827</a>
+    <a style="float:right;" href="../source/wf.lua.html#846">line 846</a>
     </dt>
     <dd>
     Get the cursor position relative to the output.
 </dd>
     <dt>
+    <a name = "Output:call_plugin"></a>
+    <pre class="signature"><span class="keyword">function</span> Output:call_plugin(activator: <span class="backtick"><a href="https://www.lua.org/manual/5.4/manual.html#6.4">string</a></span>): <span class="backtick"><code>bool</code></span></pre>
+    <a style="float:right;" href="../source/wf.lua.html#862">line 862</a>
+    </dt>
+    <dd>
+    Invoke a plugin's activator. </p>
+
+<p> You can check for the name of an activator by looking at a plugin's
+ metadata xml file and looking for options of type "activator". The
+ actual activator name is prefixed with the name of the plugin
+ followed by a forward slash.
+    <h3>Usage:</h3>
+    <ul class="examples">
+        <pre class="example">wf_core:get_active_output():call_plugin(<span class="string">'vswitch/binding_left'</span>)</pre>
+    </ul>
+</dd>
+    <dt>
     <a name = "Output:get_top_view"></a>
     <pre class="signature"><span class="keyword">function</span> Output:get_top_view(): <span class="backtick"><a href="../modules/wf.html#View">View</a></span></pre>
-    <a style="float:right;" href="../source/wf.lua.html#834">line 834</a>
+    <a style="float:right;" href="../source/wf.lua.html#873">line 873</a>
     </dt>
     <dd>
     Get the view at the top of the workspace layer.
@@ -754,7 +788,7 @@ output:focus_view(view)</pre>
     <dt>
     <a name = "Output:get_active_view"></a>
     <pre class="signature"><span class="keyword">function</span> Output:get_active_view(): <span class="backtick"><a href="../modules/wf.html#View">View</a></span></pre>
-    <a style="float:right;" href="../source/wf.lua.html#841">line 841</a>
+    <a style="float:right;" href="../source/wf.lua.html#880">line 880</a>
     </dt>
     <dd>
     Get the most recently focused view on this output.
@@ -762,7 +796,7 @@ output:focus_view(view)</pre>
     <dt>
     <a name = "Output:focus_view"></a>
     <pre class="signature"><span class="keyword">function</span> Output:focus_view(view: <span class="backtick"><a href="../modules/wf.html#View">View</a></span>, raise: <span class="backtick"><code>bool</code></span>): <span class="backtick"><a href="../modules/wf.html#View">View</a></span></pre>
-    <a style="float:right;" href="../source/wf.lua.html#851">line 851</a>
+    <a style="float:right;" href="../source/wf.lua.html#890">line 890</a>
     </dt>
     <dd>
     Try to focus the view on this output.
@@ -771,7 +805,7 @@ output:focus_view(view)</pre>
     <dt>
     <a name = "Output:ensure_visible"></a>
     <pre class="signature"><span class="keyword">function</span> Output:ensure_visible(view: <span class="backtick"><a href="../modules/wf.html#View">View</a></span>): <span class="backtick"><code>bool</code></span></pre>
-    <a style="float:right;" href="../source/wf.lua.html#860">line 860</a>
+    <a style="float:right;" href="../source/wf.lua.html#899">line 899</a>
     </dt>
     <dd>
     Switch workspaces to make this view visible.
@@ -779,15 +813,15 @@ output:focus_view(view)</pre>
     <dt>
     <a name = "Output:get_workarea"></a>
     <pre class="signature"><span class="keyword">function</span> Output:get_workarea(): <span class="backtick"><a href="../modules/wf.html#Geometry">Geometry</a></span></pre>
-    <a style="float:right;" href="../source/wf.lua.html#867">line 867</a>
+    <a style="float:right;" href="../source/wf.lua.html#906">line 906</a>
     </dt>
     <dd>
     Get the output's workarea geometry.
 </dd>
     <dt>
     <a name = "Output:hook"></a>
-    <pre class="signature"><span class="keyword">function</span> Output:hook(signal: <span class="backtick"><a href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>, handler: <span class="backtick"><code>fn(output,data)</code></span>): <span class="backtick"><code>fn(output,data)</code></span></pre>
-    <a style="float:right;" href="../source/wf.lua.html#886">line 886</a>
+    <pre class="signature"><span class="keyword">function</span> Output:hook(signal: <span class="backtick"><a href="https://www.lua.org/manual/5.4/manual.html#6.4">string</a></span>, handler: <span class="backtick"><code>fn(output,data)</code></span>): <span class="backtick"><code>fn(output,data)</code></span></pre>
+    <a style="float:right;" href="../source/wf.lua.html#925">line 925</a>
     </dt>
     <dd>
     Hook into a signal on this output. </p>
@@ -805,8 +839,8 @@ output:focus_view(view)</pre>
 </dd>
     <dt>
     <a name = "Output:unhook"></a>
-    <pre class="signature"><span class="keyword">function</span> Output:unhook(signal: <span class="backtick"><a href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>, handler: <span class="backtick"><code>fn(output,data)</code></span>)</pre>
-    <a style="float:right;" href="../source/wf.lua.html#915">line 915</a>
+    <pre class="signature"><span class="keyword">function</span> Output:unhook(signal: <span class="backtick"><a href="https://www.lua.org/manual/5.4/manual.html#6.4">string</a></span>, handler: <span class="backtick"><code>fn(output,data)</code></span>)</pre>
+    <a style="float:right;" href="../source/wf.lua.html#954">line 954</a>
     </dt>
     <dd>
     Unhook from a signal on this output. </p>
@@ -849,16 +883,16 @@ output:unhook(<span class="string">'view-focused'</span>, handler)</pre></li>
     <dl class="function">
     <dt>
     <a name = "View:get_title"></a>
-    <pre class="signature"><span class="keyword">function</span> View:get_title(): <span class="backtick"><a href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span></pre>
-    <a style="float:right;" href="../source/wf.lua.html#944">line 944</a>
+    <pre class="signature"><span class="keyword">function</span> View:get_title(): <span class="backtick"><a href="https://www.lua.org/manual/5.4/manual.html#6.4">string</a></span></pre>
+    <a style="float:right;" href="../source/wf.lua.html#983">line 983</a>
     </dt>
     <dd>
     Get the view's title.
 </dd>
     <dt>
     <a name = "View:get_app_id"></a>
-    <pre class="signature"><span class="keyword">function</span> View:get_app_id(): <span class="backtick"><a href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span></pre>
-    <a style="float:right;" href="../source/wf.lua.html#951">line 951</a>
+    <pre class="signature"><span class="keyword">function</span> View:get_app_id(): <span class="backtick"><a href="https://www.lua.org/manual/5.4/manual.html#6.4">string</a></span></pre>
+    <a style="float:right;" href="../source/wf.lua.html#990">line 990</a>
     </dt>
     <dd>
     Get the view's app id.
@@ -866,7 +900,7 @@ output:unhook(<span class="string">'view-focused'</span>, handler)</pre></li>
     <dt>
     <a name = "View:get_wm_geometry"></a>
     <pre class="signature"><span class="keyword">function</span> View:get_wm_geometry(): <span class="backtick"><a href="../modules/wf.html#Geometry">Geometry</a></span></pre>
-    <a style="float:right;" href="../source/wf.lua.html#958">line 958</a>
+    <a style="float:right;" href="../source/wf.lua.html#997">line 997</a>
     </dt>
     <dd>
     Get the view's wm geometry.
@@ -874,7 +908,7 @@ output:unhook(<span class="string">'view-focused'</span>, handler)</pre></li>
     <dt>
     <a name = "View:get_output_geometry"></a>
     <pre class="signature"><span class="keyword">function</span> View:get_output_geometry(): <span class="backtick"><a href="../modules/wf.html#Geometry">Geometry</a></span></pre>
-    <a style="float:right;" href="../source/wf.lua.html#965">line 965</a>
+    <a style="float:right;" href="../source/wf.lua.html#1004">line 1004</a>
     </dt>
     <dd>
     Get the view's output geometry.
@@ -882,7 +916,7 @@ output:unhook(<span class="string">'view-focused'</span>, handler)</pre></li>
     <dt>
     <a name = "View:get_bounding_box"></a>
     <pre class="signature"><span class="keyword">function</span> View:get_bounding_box(): <span class="backtick"><a href="../modules/wf.html#Geometry">Geometry</a></span></pre>
-    <a style="float:right;" href="../source/wf.lua.html#972">line 972</a>
+    <a style="float:right;" href="../source/wf.lua.html#1011">line 1011</a>
     </dt>
     <dd>
     Get the view's bounding box.
@@ -890,7 +924,7 @@ output:unhook(<span class="string">'view-focused'</span>, handler)</pre></li>
     <dt>
     <a name = "View:get_output"></a>
     <pre class="signature"><span class="keyword">function</span> View:get_output(): <span class="backtick"><a href="../modules/wf.html#Output">Output</a></span></pre>
-    <a style="float:right;" href="../source/wf.lua.html#979">line 979</a>
+    <a style="float:right;" href="../source/wf.lua.html#1018">line 1018</a>
     </dt>
     <dd>
     Get the view's output.
@@ -898,7 +932,7 @@ output:unhook(<span class="string">'view-focused'</span>, handler)</pre></li>
     <dt>
     <a name = "View:set_geometry"></a>
     <pre class="signature"><span class="keyword">function</span> View:set_geometry(geo: <span class="backtick"><a href="../modules/wf.html#Geometry">Geometry</a></span>)</pre>
-    <a style="float:right;" href="../source/wf.lua.html#985">line 985</a>
+    <a style="float:right;" href="../source/wf.lua.html#1024">line 1024</a>
     </dt>
     <dd>
     Set the view's geometry.
@@ -909,8 +943,8 @@ output:unhook(<span class="string">'view-focused'</span>, handler)</pre></li>
 </dd>
     <dt>
     <a name = "View:hook"></a>
-    <pre class="signature"><span class="keyword">function</span> View:hook(signal: <span class="backtick"><a href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>, handler: <span class="backtick"><code>fn(view,data)</code></span>): <span class="backtick"><code>fn(view,data)</code></span></pre>
-    <a style="float:right;" href="../source/wf.lua.html#1005">line 1005</a>
+    <pre class="signature"><span class="keyword">function</span> View:hook(signal: <span class="backtick"><a href="https://www.lua.org/manual/5.4/manual.html#6.4">string</a></span>, handler: <span class="backtick"><code>fn(view,data)</code></span>): <span class="backtick"><code>fn(view,data)</code></span></pre>
+    <a style="float:right;" href="../source/wf.lua.html#1044">line 1044</a>
     </dt>
     <dd>
     Hook into a signal on this view. </p>
@@ -929,8 +963,8 @@ output:unhook(<span class="string">'view-focused'</span>, handler)</pre></li>
 </dd>
     <dt>
     <a name = "View:unhook"></a>
-    <pre class="signature"><span class="keyword">function</span> View:unhook(signal: <span class="backtick"><a href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>, handler: <span class="backtick"><code>fn(view,data)</code></span>)</pre>
-    <a style="float:right;" href="../source/wf.lua.html#1032">line 1032</a>
+    <pre class="signature"><span class="keyword">function</span> View:unhook(signal: <span class="backtick"><a href="https://www.lua.org/manual/5.4/manual.html#6.4">string</a></span>, handler: <span class="backtick"><code>fn(view,data)</code></span>)</pre>
+    <a style="float:right;" href="../source/wf.lua.html#1071">line 1071</a>
     </dt>
     <dd>
     Unhook from a signal on this view. </p>
@@ -953,7 +987,7 @@ view:unhook(<span class="string">'app-id-changed'</span>, handler)</pre></li>
 </div> <!-- id="main" -->
 <div id="about">
 <i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
-<i style="float:right;">Last updated 2022-01-13 02:34:15 </i>
+<i style="float:right;">Last updated 2022-01-19 21:25:28 </i>
 </div> <!-- id="about" -->
 </div> <!-- id="container" -->
 </body>

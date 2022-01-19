@@ -47,7 +47,7 @@
 </span><span class="comment">-- @module wf
 </span><span class="comment">--
 </span><span class="global">require</span> <span class="string">'wf.wf_h'</span> <span class="comment">-- Load the wf.h c header.
-</span><span class="global">require</span> <span class="string">'wf.ipc'</span>
+</span><span class="keyword">local</span> ipc = <span class="global">require</span> <span class="string">'wf.ipc'</span>
 
 <span class="keyword">local</span> ffi = <span class="global">require</span> <span class="string">'ffi'</span>
 <span class="keyword">local</span> util = <span class="global">require</span> <span class="string">'wf.util'</span>
@@ -81,7 +81,7 @@
             Log.<span class="global">debug</span>(<span class="string">'EMITTER DIED: '</span>, object_id(emitter))
 
             <span class="keyword">local</span> emitter_id = object_id(emitter)
-            Raw.lifetime_callbacks[emitter_id]:call(emitter)
+            Raw.lifetime_callbacks[emitter_id].hook:call(emitter)
             Raw.lifetime_callbacks[emitter_id] = <span class="keyword">nil</span>
         <span class="keyword">end</span>
     <span class="keyword">end</span>)
@@ -96,9 +96,12 @@
 
     <span class="keyword">if</span> <span class="keyword">not</span> self.lifetime_callbacks[emitter] <span class="keyword">then</span>
         ffi.C.wflua_lifetime_subscribe(emitter_ptr)
-        self.lifetime_callbacks[emitter] = util.Hook {handler}
+        self.lifetime_callbacks[emitter] = {
+            emitter_ptr = emitter_ptr,
+            hook = util.Hook {handler}
+        }
     <span class="keyword">else</span>
-        self.lifetime_callbacks[emitter]:hook(handler)
+        self.lifetime_callbacks[emitter].hook:hook(handler)
     <span class="keyword">end</span>
     <span class="keyword">return</span> handler
 <span class="keyword">end</span>
@@ -106,12 +109,21 @@
 <span class="keyword">function</span> Raw:unsubscribe_lifetime(emitter_ptr, handler)
     <span class="keyword">local</span> emitter = object_id(emitter_ptr)
 
-    self.lifetime_callbacks[emitter]:unhook(handler)
+    self.lifetime_callbacks[emitter].hook:unhook(handler)
 
-    <span class="keyword">if</span> self.lifetime_callbacks[emitter]:is_empty() <span class="keyword">then</span>
+    <span class="keyword">if</span> self.lifetime_callbacks[emitter].hook:is_empty() <span class="keyword">then</span>
         ffi.C.wflua_lifetime_unsubscribe(emitter_ptr)
         self.lifetime_callbacks[emitter] = <span class="keyword">nil</span>
     <span class="keyword">end</span>
+<span class="keyword">end</span>
+
+<span class="keyword">function</span> Raw:reset_lifetimes()
+    <span class="keyword">for</span> emitter, lt_cb <span class="keyword">in</span> <span class="global">pairs</span>(self.lifetime_callbacks) <span class="keyword">do</span>
+        <span class="global">print</span>(<span class="string">'-Emitter:'</span>, emitter, <span class="global">tostring</span>(lt_cb.emitter_ptr))
+        ffi.C.wflua_lifetime_unsubscribe(lt_cb.emitter_ptr)
+        <span class="global">print</span>(<span class="string">'+Emitter:'</span>, emitter, <span class="global">tostring</span>(lt_cb.emitter_ptr))
+    <span class="keyword">end</span>
+    self.lifetime_callbacks = {}
 <span class="keyword">end</span>
 
 <span class="keyword">function</span> Raw:subscribe(emitter_ptr, signal, handler, opts)
@@ -134,6 +146,7 @@
             <span class="keyword">end</span>)
         <span class="keyword">end</span>
         self.signal_callbacks[emitter] = {
+            emitter_ptr = emitter_ptr,
             lifetime_handler = lifetime_cleanup,
             signals = {}
         }
@@ -172,6 +185,12 @@
             self.signal_callbacks[emitter] = <span class="keyword">nil</span>
         <span class="keyword">end</span>
     <span class="keyword">end</span>
+<span class="keyword">end</span>
+<span class="keyword">function</span> Raw:reset_signals()
+    <span class="keyword">for</span> emitter, sig_cb <span class="keyword">in</span> <span class="global">pairs</span>(self.signal_callbacks) <span class="keyword">do</span>
+        ffi.C.wflua_signal_unsubscribe_all(sig_cb.emitter_ptr)
+    <span class="keyword">end</span>
+    self.signal_callbacks = {}
 <span class="keyword">end</span>
 
 ffi.C.wflua_register_event_callback(Raw.event_callback)
@@ -277,7 +296,7 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
 </span><span class="comment">-- -- option = value
 </span><span class="comment">-- -- ...
 </span><span class="comment">-- @tparam {section,option=value,...} args
-</span><a id="239"></a><span class="comment">-- @within Functions
+</span><a id="258"></a><span class="comment">-- @within Functions
 </span><span class="keyword">function</span> M.set(args)
     <span class="keyword">if</span> <span class="global">type</span>(args) ~= <span class="string">'table'</span> <span class="keyword">then</span>
         <span class="global">error</span>(<span class="string">[[The arguments to set should be passed in the form:
@@ -348,7 +367,7 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
 </span><span class="comment">-- @tparam string keys A string representing a sequence of key presses.
 </span><span class="comment">-- @tparam fn() handler The handler callback to run.
 </span><span class="comment">-- @within Functions
-</span><span class="keyword">function</span> M.map(opts, keys, handler)<a id="309"></a>
+</span><span class="keyword">function</span> M.map(opts, keys, handler)<a id="328"></a>
     <span class="comment">-- Optional opts argument
 </span>    <span class="keyword">if</span> handler == <span class="keyword">nil</span> <span class="keyword">then</span>
         handler = keys
@@ -453,7 +472,7 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
         <span class="comment">--- Set the cursor to the given name from the cursor theme.
 </span>        <span class="comment">-- @tparam Core self the wayfire instance.
 </span>        <span class="comment">-- @tparam string name the cursor name.
-</span>        set_cursor = <span class="keyword">function</span>(self, name)<a id="414"></a>
+</span>        set_cursor = <span class="keyword">function</span>(self, name)<a id="433"></a>
             ffi.C.wf_Core_set_cursor(self, name)
         <span class="keyword">end</span>,
 
@@ -870,6 +889,26 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
             <span class="keyword">return</span> ffi.C.wf_Output_get_cursor_position(self)
         <span class="keyword">end</span>,
 
+        <span class="comment">--- Invoke a plugin's activator.
+</span>        <span class="comment">--
+</span>        <span class="comment">-- You can check for the name of an activator by looking at a plugin's
+</span>        <span class="comment">-- metadata xml file and looking for options of type "activator". The
+</span>        <span class="comment">-- actual activator name is prefixed with the name of the plugin
+</span>        <span class="comment">-- followed by a forward slash.
+</span>        <span class="comment">--
+</span>        <span class="comment">-- @usage
+</span>        <span class="comment">-- wf_core:get_active_output():call_plugin('vswitch/binding_left')
+</span>        <span class="comment">-- @tparam Output self the output.
+</span>        <span class="comment">-- @tparam string activator the name of the activator.
+</span>        <span class="comment">-- @treturn bool whether the activator was invoked.
+</span>        call_plugin = <span class="keyword">function</span>(self, activator)
+            <span class="keyword">local</span> data = ffi.new(<span class="string">'wf_PlainActivatorData'</span>, {
+                source = ffi.C.WF_ACTIVATOR_SOURCE_PLUGIN,
+                activation_data = <span class="number">0</span>
+            })
+            <span class="keyword">return</span> ffi.C.wf_Output_call_plugin_plain(self, activator, data)
+        <span class="keyword">end</span>,
+
         <span class="comment">--- Get the view at the top of the workspace layer.
 </span>        <span class="comment">-- @tparam Output self the output.
 </span>        <span class="comment">-- @treturn View the view at the top of the workspace layer.
@@ -1081,7 +1120,7 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
 
 <span class="comment">-- Outputs represented as a single outputs table since there is only only
 </span><span class="comment">-- central wflua instance per wayfire session.
-</span><span class="keyword">do</span>
+</span><span class="keyword">local</span> init_outputs = <span class="keyword">function</span>()
     <span class="keyword">local</span> outputs = {_hooked_signals = {}}
     <span class="keyword">local</span> output_layout = M.get_core():get_output_layout()
 
@@ -1178,6 +1217,25 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
 
     M.outputs = outputs
 <span class="keyword">end</span>
+init_outputs()
+
+<span class="keyword">local</span> reset_state = <span class="keyword">function</span>()
+    Raw:reset_signals()
+    Raw:reset_lifetimes()
+    init_outputs()
+    ipc.__reset_state()
+<span class="keyword">end</span>
+
+<span class="comment">--- Reload the lua init file.
+</span><span class="comment">--
+</span><span class="comment">-- @usage
+</span><span class="comment">-- -- Reload init on when super + shift + r is pressed.
+</span><span class="comment">-- wf.map('s-R', wf.reload_init)
+</span><span class="comment">-- @within Functions
+</span><span class="keyword">function</span> M.reload_init()
+    reset_state()
+    ffi.C.wflua_reload_init()
+<span class="keyword">end</span>
 
 <span class="keyword">return</span> M</pre>
 
@@ -1185,7 +1243,7 @@ ffi.C.wflua_register_event_callback(Raw.event_callback)
 </div> <!-- id="main" -->
 <div id="about">
 <i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
-<i style="float:right;">Last updated 2022-01-13 02:34:15 </i>
+<i style="float:right;">Last updated 2022-01-19 21:25:28 </i>
 </div> <!-- id="about" -->
 </div> <!-- id="container" -->
 </body>
