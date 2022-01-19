@@ -5,7 +5,7 @@
 -- @module wf
 --
 require 'wf.wf_h' -- Load the wf.h c header.
-require 'wf.ipc'
+local ipc = require 'wf.ipc'
 
 local ffi = require 'ffi'
 local util = require 'wf.util'
@@ -39,7 +39,7 @@ Raw.event_callback = ffi.cast("wflua_EventCallback",
             Log.debug('EMITTER DIED: ', object_id(emitter))
 
             local emitter_id = object_id(emitter)
-            Raw.lifetime_callbacks[emitter_id]:call(emitter)
+            Raw.lifetime_callbacks[emitter_id].hook:call(emitter)
             Raw.lifetime_callbacks[emitter_id] = nil
         end
     end)
@@ -54,9 +54,12 @@ function Raw:subscribe_lifetime(emitter_ptr, handler)
 
     if not self.lifetime_callbacks[emitter] then
         ffi.C.wflua_lifetime_subscribe(emitter_ptr)
-        self.lifetime_callbacks[emitter] = util.Hook {handler}
+        self.lifetime_callbacks[emitter] = {
+            emitter_ptr = emitter_ptr,
+            hook = util.Hook {handler}
+        }
     else
-        self.lifetime_callbacks[emitter]:hook(handler)
+        self.lifetime_callbacks[emitter].hook:hook(handler)
     end
     return handler
 end
@@ -64,12 +67,21 @@ end
 function Raw:unsubscribe_lifetime(emitter_ptr, handler)
     local emitter = object_id(emitter_ptr)
 
-    self.lifetime_callbacks[emitter]:unhook(handler)
+    self.lifetime_callbacks[emitter].hook:unhook(handler)
 
-    if self.lifetime_callbacks[emitter]:is_empty() then
+    if self.lifetime_callbacks[emitter].hook:is_empty() then
         ffi.C.wflua_lifetime_unsubscribe(emitter_ptr)
         self.lifetime_callbacks[emitter] = nil
     end
+end
+
+function Raw:reset_lifetimes()
+    for emitter, lt_cb in pairs(self.lifetime_callbacks) do
+        print('-Emitter:', emitter, tostring(lt_cb.emitter_ptr))
+        ffi.C.wflua_lifetime_unsubscribe(lt_cb.emitter_ptr)
+        print('+Emitter:', emitter, tostring(lt_cb.emitter_ptr))
+    end
+    self.lifetime_callbacks = {}
 end
 
 function Raw:subscribe(emitter_ptr, signal, handler, opts)
@@ -92,6 +104,7 @@ function Raw:subscribe(emitter_ptr, signal, handler, opts)
             end)
         end
         self.signal_callbacks[emitter] = {
+            emitter_ptr = emitter_ptr,
             lifetime_handler = lifetime_cleanup,
             signals = {}
         }
@@ -130,6 +143,12 @@ function Raw:unsubscribe(emitter_ptr, signal, handler)
             self.signal_callbacks[emitter] = nil
         end
     end
+end
+function Raw:reset_signals()
+    for emitter, sig_cb in pairs(self.signal_callbacks) do
+        ffi.C.wflua_signal_unsubscribe_all(sig_cb.emitter_ptr)
+    end
+    self.signal_callbacks = {}
 end
 
 ffi.C.wflua_register_event_callback(Raw.event_callback)
@@ -1059,7 +1078,7 @@ ffi.metatype("wf_View", {
 
 -- Outputs represented as a single outputs table since there is only only
 -- central wflua instance per wayfire session.
-do
+local init_outputs = function()
     local outputs = {_hooked_signals = {}}
     local output_layout = M.get_core():get_output_layout()
 
@@ -1155,6 +1174,25 @@ do
     end
 
     M.outputs = outputs
+end
+init_outputs()
+
+local reset_state = function()
+    Raw:reset_signals()
+    Raw:reset_lifetimes()
+    init_outputs()
+    ipc.__reset_state()
+end
+
+--- Reload the lua init file.
+--
+-- @usage
+-- -- Reload init on when super + shift + r is pressed.
+-- wf.map('s-R', wf.reload_init)
+-- @within Functions
+function M.reload_init()
+    reset_state()
+    ffi.C.wflua_reload_init()
 end
 
 return M

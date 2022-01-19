@@ -183,7 +183,16 @@ fn AsyncSocketServer(comptime Parent: type, comptime Handler: type) type {
             }
 
             const socklen = address.getOsSockLen();
-            try os.bind(sock_fd, &address.any, socklen);
+            os.bind(sock_fd, &address.any, socklen) catch |err| switch (err) {
+                error.AddressInUse => {
+                    std.log.err(
+                        "Bind failed! Socket in use: {s}",
+                        .{socket_path},
+                    );
+                    return err;
+                },
+                else => return err,
+            };
             try os.listen(sock_fd, 5);
 
             // NOTE: a normal `async self.mainLoop();` call here crashes the
@@ -203,18 +212,7 @@ fn AsyncSocketServer(comptime Parent: type, comptime Handler: type) type {
 
         pub fn deinit(self: *@This()) !void {
             if (self.active_clients) |*active_conns| {
-                // Cannot just keep using the same iterator since it is
-                // invalidated when the frame returns and removes the map entry.
-                var conn_count = active_conns.count();
-                while (conn_count > 0) : (conn_count -= 1) {
-                    const conn_frame: *ClientFrame =
-                        active_conns.valueIterator().next().?.frame;
-
-                    conn_frame.state.stop_loop = true;
-                    conn_frame.state.resumeFrame();
-                }
-                // All frames should have cleaned up and returned.
-                std.debug.assert(active_conns.count() == 0);
+                self.stopClientFrames();
                 active_conns.deinit();
             }
 
@@ -229,9 +227,31 @@ fn AsyncSocketServer(comptime Parent: type, comptime Handler: type) type {
             }
 
             if (self.sock_fd) |sock_fd| {
+                std.log.debug("closing socket. {any}", .{sock_fd});
                 os.closeSocket(sock_fd);
                 self.sock_fd = null;
             }
+        }
+
+        pub fn reset(self: *@This()) void {
+            if (self.active_clients != null)
+                self.stopClientFrames();
+        }
+
+        fn stopClientFrames(self: *@This()) void {
+            const active_conns = &(self.active_clients.?);
+            // Cannot just keep using the same iterator since it is
+            // invalidated when the frame returns and removes the map entry.
+            var conn_count = active_conns.count();
+            while (conn_count > 0) : (conn_count -= 1) {
+                const conn_frame: *ClientFrame =
+                    active_conns.valueIterator().next().?.frame;
+
+                conn_frame.state.stop_loop = true;
+                conn_frame.state.resumeFrame();
+            }
+            // All frames should have cleaned up and returned.
+            std.debug.assert(active_conns.count() == 0);
         }
 
         fn mainLoopTick(
@@ -478,7 +498,10 @@ fn forwardAsyncNotifs(
 ) !void {
     notifs: while (true) {
         state.suspendFrame(.ipc_command) catch |err| switch (err) {
-            error.WlSocketHangup, error.WlSocketError => |e| {
+            error.WlSocketHangup,
+            error.WlSocketError,
+            error.ClientFrameShuttingDown,
+            => |e| {
                 std.log.info(
                     "Received {} while command notifying. " ++
                         "Cancelling command promise for {s}.",
@@ -486,7 +509,12 @@ fn forwardAsyncNotifs(
                 );
                 Lua.rawGetRef(self.L, cancel_ref);
                 try Lua.pcall(self.L, .{ .nargs = 0, .nresults = 0 });
-                return;
+
+                if (e == error.ClientFrameShuttingDown) {
+                    return e;
+                } else {
+                    return;
+                }
             },
             else => |e| return e,
         };
@@ -562,7 +590,10 @@ fn dispatchCommand(
             std.debug.assert(c.lua_gettop(self.L) == orig_stack_len);
 
             state.suspendFrame(.ipc_command) catch |err| switch (err) {
-                error.WlSocketHangup, error.WlSocketError => |e| {
+                error.WlSocketHangup,
+                error.WlSocketError,
+                error.ClientFrameShuttingDown,
+                => |e| {
                     std.log.info(
                         "Received {} while command pending. " ++
                             "Cancelling command promise for {s}.",
@@ -570,7 +601,12 @@ fn dispatchCommand(
                     );
                     Lua.rawGetRef(self.L, cancel_ref);
                     try Lua.pcall(self.L, .{ .nargs = 0, .nresults = 0 });
-                    return;
+
+                    if (e == error.ClientFrameShuttingDown) {
+                        return e;
+                    } else {
+                        return;
+                    }
                 },
                 else => |e| return e,
             };
@@ -750,8 +786,12 @@ pub fn init(self: *This, allocator: *Allocator, L: *c.lua_State) !void {
     try self.socket_server.init(allocator, socket_path, self);
 }
 
-pub fn deinit(self: *This) void {
+pub fn deinit(self: *This) !void {
     try self.socket_server.deinit();
 
     Lua.unref(self.L, self.command_callback_ref);
+}
+
+pub fn reset(self: *This) void {
+    self.socket_server.reset();
 }

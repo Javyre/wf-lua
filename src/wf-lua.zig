@@ -65,7 +65,11 @@ export fn plugin_fini(raw_plugin: ?*c_void) void {
         raw_plugin,
     ));
 
-    plugin.fini();
+    plugin.fini() catch |err| {
+        std.log.err("Failed to finalize the plugin: {any}", .{err});
+        if (@errorReturnTrace()) |trace|
+            std.debug.dumpStackTrace(trace.*);
+    };
     if (gpa.deinit())
         std.log.err("Main allocator detected leaks.", .{});
 }

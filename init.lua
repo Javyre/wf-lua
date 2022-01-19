@@ -61,6 +61,12 @@ wf.map('s-S-Return', function() wf.get_core():run 'foot' end)
 -- Toggle music on 'super + n' followed by 'p'.
 wf.map('s-N p', function() wf.get_core():run 'mpc toggle' end)
 
+-- Reload init file.
+wf.map('s-N r', wf.reload_init)
+
+-- Shutdown the wayfire session.
+wf.map('s-N q', function() wf.get_core():shutdown() end)
+
 local function _call_plugin(activator)
     return function()
         wf.get_core():get_active_output():call_plugin(activator)
@@ -86,6 +92,19 @@ local function print_view(view)
     print('view bounding_box:    ' .. tostring(view:get_bounding_box()))
     print('view output:          ' .. tostring(view:get_output()))
 end
+
+-- Print view under the cursor.
+wf.map('s-N i', function()
+    local core = wf.get_core()
+    local pos = core:get_cursor_position();
+    local view = core:get_view_at(pos);
+
+    if view ~= nil then
+        print_view(view)
+    else
+        print('No view under cursor.')
+    end
+end)
 
 local handler
 handler = wf.outputs:hook('view-mapped', function(output, data)

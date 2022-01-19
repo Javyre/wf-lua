@@ -33,3 +33,5 @@ void wflua_ipc_command_reject(void *handle, const char *error,
                               wflua_CommandError code);
 void wflua_ipc_command_begin_notifications(void *handle);
 void wflua_ipc_command_notify(void *handle, const char *notif);
+
+void wflua_reload_init();

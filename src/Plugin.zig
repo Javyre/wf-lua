@@ -33,7 +33,6 @@ signal_dispatcher: SignalDispatcher,
 key_mappings: KeyMappings,
 ipc_server: IpcServer,
 
-
 /// Exposed standard zig logger to lua.
 export fn wflua_log(lvl: c.wflua_LogLvl, msg: [*:0]const u8) void {
     const scope = std.log.scoped(.lua);
@@ -43,6 +42,15 @@ export fn wflua_log(lvl: c.wflua_LogLvl, msg: [*:0]const u8) void {
         .WFLUA_LOGLVL_ERR => scope.err("{s}", .{msg}),
         _ => unreachable,
     }
+}
+
+/// Reset and rerun the lua init file.
+export fn wflua_reload_init() void {
+    getPlugin().reinit() catch |err| {
+        std.log.err("Failed to rerun the lua init file: {any}", .{err});
+        if (@errorReturnTrace()) |trace|
+            std.debug.dumpStackTrace(trace.*);
+    };
 }
 
 /// Find the lua init file using the following precedence:
@@ -71,6 +79,17 @@ fn getInitFile(allocator: *Allocator) ![:0]const u8 {
     return error.FileNotFound;
 }
 
+fn runUserInit(self: *This) !void {
+    var arena = std.heap.ArenaAllocator.init(self.allocator);
+    defer arena.deinit();
+
+    const init_file = try getInitFile(&arena.allocator);
+    std.log.info("Running init file from: {s}", .{init_file});
+    try Lua.doFile(self.L, init_file);
+
+    std.log.info("Done running init.", .{});
+}
+
 /// Plugin entry point.
 pub fn init(self: *This, allocator: *Allocator) !void {
     // NOTE: SIGPIPE needs to be handled locally. So we need to disable the
@@ -82,9 +101,6 @@ pub fn init(self: *This, allocator: *Allocator) !void {
     }, null);
 
     self.allocator = allocator;
-
-    var arena = std.heap.ArenaAllocator.init(self.allocator);
-    defer arena.deinit();
 
     std.debug.print("\n\nHello, wayfireee!!\n\n\n", .{});
 
@@ -103,26 +119,49 @@ pub fn init(self: *This, allocator: *Allocator) !void {
 
     // Prepare the dispatcher state.
     try self.signal_dispatcher.init(self.allocator, self.L.?);
+    errdefer self.signal_dispatcher.deinit();
+
     // Prepare the mappings state.
     try self.key_mappings.init(self.allocator, self.L.?);
+    errdefer self.key_mappings.deinit();
 
     // Run the init file.
-    const init_file = try getInitFile(&arena.allocator);
-    std.log.info("Running init file from: {s}", .{init_file});
-    try Lua.doFile(L, init_file);
-
-    std.log.info("Done running init.", .{});
+    try self.runUserInit();
 
     try self.ipc_server.init(self.allocator, self.L.?);
+    errdefer self.ipc_server.deinit();
 }
 
 /// Plugin cleanup.
-pub fn fini(self: *This) void {
-    self.ipc_server.deinit();
+pub fn fini(self: *This) !void {
+    try self.ipc_server.deinit();
     self.key_mappings.deinit();
     self.signal_dispatcher.deinit();
 
     c.lua_close(self.L);
 
     std.log.info("Goodbye.", .{});
+}
+
+// NOTE: we assume the lua state is manually reset before calling reinit().
+//       Ideally we would fully unload the wf modules but this leads to issues
+//       with redefining ffi types.
+fn reinit(self: *This) !void {
+    std.log.info("Reloading wflua.", .{});
+
+    self.key_mappings.deinit();
+    self.signal_dispatcher.deinit();
+
+    // Prepare the dispatcher state.
+    try self.signal_dispatcher.init(self.allocator, self.L.?);
+    errdefer self.signal_dispatcher.deinit();
+
+    // Prepare the mappings state.
+    try self.key_mappings.init(self.allocator, self.L.?);
+    errdefer self.key_mappings.deinit();
+
+    // Run the init file.
+    try self.runUserInit();
+
+    self.ipc_server.reset();
 }

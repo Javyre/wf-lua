@@ -322,4 +322,8 @@ The second argument to def_cmd needs to contain the following in this order:
     }
 end
 
+function M.__reset_state()
+    commands = {}
+end
+
 return M
